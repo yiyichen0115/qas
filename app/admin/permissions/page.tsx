@@ -156,57 +156,60 @@ export default function PermissionsPage() {
     import: { label: '导入', icon: <FileText className="h-3 w-3" /> },
   }
 
-  const renderPermissionRow = (item: PermissionItem, level: number = 0) => {
+  const renderPermissionRow = (item: PermissionItem, level: number = 0): React.ReactNode[] => {
     const hasChildren = item.children && item.children.length > 0
     const isExpanded = expandedItems.includes(item.id)
 
-    return (
-      <>
-        <TableRow key={item.id} className="hover:bg-muted/50">
-          <TableCell className="py-2" style={{ paddingLeft: `${level * 24 + 16}px` }}>
-            <div className="flex items-center gap-2">
-              {hasChildren && (
-                <button
-                  onClick={() => toggleExpand(item.id)}
-                  className="p-0.5 hover:bg-muted rounded"
-                >
-                  <ChevronRight
-                    className={cn(
-                      'h-4 w-4 text-muted-foreground transition-transform',
-                      isExpanded && 'rotate-90'
-                    )}
-                  />
-                </button>
-              )}
-              {!hasChildren && <div className="w-5" />}
-              <span className="text-sm font-medium">{item.name}</span>
-              <Badge variant="outline" className="text-xs">
-                {item.type === 'page' ? '页面' : item.type === 'field' ? '字段' : '按钮'}
-              </Badge>
-            </div>
+    const rows: React.ReactNode[] = [
+      <TableRow key={item.id} className="hover:bg-muted/50">
+        <TableCell className="py-2" style={{ paddingLeft: `${level * 24 + 16}px` }}>
+          <div className="flex items-center gap-2">
+            {hasChildren && (
+              <button
+                onClick={() => toggleExpand(item.id)}
+                className="p-0.5 hover:bg-muted rounded"
+              >
+                <ChevronRight
+                  className={cn(
+                    'h-4 w-4 text-muted-foreground transition-transform',
+                    isExpanded && 'rotate-90'
+                  )}
+                />
+              </button>
+            )}
+            {!hasChildren && <div className="w-5" />}
+            <span className="text-sm font-medium">{item.name}</span>
+            <Badge variant="outline" className="text-xs">
+              {item.type === 'page' ? '页面' : item.type === 'field' ? '字段' : '按钮'}
+            </Badge>
+          </div>
+        </TableCell>
+        {item.actions.map((action) => (
+          <TableCell key={action} className="py-2 text-center">
+            <Checkbox
+              checked={hasPermission(item.id, action)}
+              onCheckedChange={() => togglePermission(item.id, action)}
+            />
           </TableCell>
-          {item.actions.map((action) => (
+        ))}
+        {/* 补齐空列 */}
+        {(['view', 'create', 'edit', 'delete'] as PermissionAction[])
+          .filter((a) => !item.actions.includes(a))
+          .map((action) => (
             <TableCell key={action} className="py-2 text-center">
-              <Checkbox
-                checked={hasPermission(item.id, action)}
-                onCheckedChange={() => togglePermission(item.id, action)}
-              />
+              <span className="text-muted-foreground">-</span>
             </TableCell>
           ))}
-          {/* 补齐空列 */}
-          {(['view', 'create', 'edit', 'delete'] as PermissionAction[])
-            .filter((a) => !item.actions.includes(a))
-            .map((action) => (
-              <TableCell key={action} className="py-2 text-center">
-                <span className="text-muted-foreground">-</span>
-              </TableCell>
-            ))}
-        </TableRow>
-        {hasChildren &&
-          isExpanded &&
-          item.children!.map((child) => renderPermissionRow(child, level + 1))}
-      </>
-    )
+      </TableRow>,
+    ]
+
+    if (hasChildren && isExpanded) {
+      item.children!.forEach((child) => {
+        rows.push(...renderPermissionRow(child, level + 1))
+      })
+    }
+
+    return rows
   }
 
   return (
@@ -266,7 +269,7 @@ export default function PermissionsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {permissionTree.map((item) => renderPermissionRow(item))}
+                      {permissionTree.flatMap((item) => renderPermissionRow(item))}
                     </TableBody>
                   </Table>
                 </div>

@@ -418,8 +418,9 @@ function CreateDocumentContent() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      
+
       documentStorage.save(document)
+      console.log('草稿文档已保存:', document)
       router.push(`/runtime/documents/${document.id}`)
     } finally {
       setIsSubmitting(false)
@@ -455,8 +456,9 @@ function CreateDocumentContent() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      
+
       documentStorage.save(document)
+      console.log('提交的文档已保存:', document)
       router.push(`/runtime/documents/${document.id}`)
     } finally {
       setIsSubmitting(false)

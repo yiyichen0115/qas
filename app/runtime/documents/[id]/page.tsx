@@ -22,15 +22,16 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MainLayout } from '@/components/layout/main-layout'
-import { 
-  documentStorage, 
-  formStorage, 
-  userStorage, 
-  workflowStorage, 
-  approvalStorage, 
-  replyStorage 
+import {
+  documentStorage,
+  formStorage,
+  userStorage,
+  workflowStorage,
+  approvalStorage,
+  replyStorage,
+  documentTypeStorage
 } from '@/lib/storage'
-import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus } from '@/lib/types'
+import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType } from '@/lib/types'
 
 function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -48,32 +49,66 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const resolvedParams = use(params)
   const router = useRouter()
   const [document, setDocument] = useState<Document | null>(null)
-  const [form, setForm] = useState<FormConfig | null>(null)
+  const [form, setForm] = useState<FormConfig | DocumentType | null>(null)
   const [replies, setReplies] = useState<DocumentReply[]>([])
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof userStorage.getCurrentUser>>(null)
-  
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
   const [newReply, setNewReply] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
 
   useEffect(() => {
-    loadData()
-    setCurrentUser(userStorage.getCurrentUser())
+    setIsLoading(true)
+    try {
+      loadData()
+      setCurrentUser(userStorage.getCurrentUser())
+    } finally {
+      setIsLoading(false)
+    }
   }, [resolvedParams.id])
 
   const loadData = () => {
+    console.log('Loading document with ID:', resolvedParams.id)
+    console.log('All documents:', documentStorage.getAll().map(d => ({ id: d.id, number: d.documentNumber })))
+    console.log('All forms:', formStorage.getAll().map(f => ({ id: f.id, name: f.name })))
+    console.log('All document types:', documentTypeStorage.getAll().map(dt => ({ id: dt.id, name: dt.name })))
+
+    setError(null)
     const doc = documentStorage.getById(resolvedParams.id)
     if (doc) {
+      console.log('Found document:', doc)
       setDocument(doc)
-      const loadedForm = formStorage.getById(doc.formId)
-      setForm(loadedForm || null)
-      setReplies(replyStorage.getByDocumentId(doc.id))
-      setApprovals(approvalStorage.getByDocumentId(doc.id))
+
+      // 优先尝试从单据类型存储获取表单配置
+      const loadedDocType = documentTypeStorage.getById(doc.documentTypeId)
+      console.log('Loaded document type for ID:', doc.documentTypeId, 'Type:', loadedDocType)
+
+      if (loadedDocType) {
+        setForm(loadedDocType)
+        setReplies(replyStorage.getByDocumentId(doc.id))
+        setApprovals(approvalStorage.getByDocumentId(doc.id))
+      } else {
+        // 如果单据类型不存在，尝试从表单存储获取
+        const loadedForm = formStorage.getById(doc.formId)
+        console.log('Loaded form for ID:', doc.formId, 'Form:', loadedForm)
+        if (loadedForm) {
+          setForm(loadedForm)
+          setReplies(replyStorage.getByDocumentId(doc.id))
+          setApprovals(approvalStorage.getByDocumentId(doc.id))
+        } else {
+          setError(`表单不存在 (documentTypeId: ${doc.documentTypeId}, formId: ${doc.formId})`)
+        }
+      }
+    } else {
+      console.error('Document not found:', resolvedParams.id)
+      setError(`文档不存在 (ID: ${resolvedParams.id})`)
     }
   }
 
@@ -199,14 +234,55 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   }
 
   // 判断当前用户是否可以审批
-  const canApprove = currentUser && document?.status === 'pending' && 
+  const canApprove = currentUser && document?.status === 'pending' &&
     (currentUser.roles.includes('role_admin') || currentUser.roles.includes('role_approver'))
+
+  // 获取表单的enableReply属性，兼容FormConfig和DocumentType
+  const formEnableReply = form?.enableReply ?? true
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="flex h-full items-center justify-center">
+          <div className="text-center">
+            <XCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
+            <h2 className="text-lg font-medium text-foreground">加载失败</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+            <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              返回
+            </Button>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
 
   if (!document || !form) {
     return (
       <MainLayout>
         <div className="flex h-full items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="text-center">
+            <FileText className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            <h2 className="text-lg font-medium text-foreground">未找到数据</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {!document ? '文档不存在' : '表单不存在'}
+            </p>
+            <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              返回
+            </Button>
+          </div>
         </div>
       </MainLayout>
     )
@@ -276,7 +352,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               <TabsList>
                 <TabsTrigger value="detail">单据详情</TabsTrigger>
                 <TabsTrigger value="approval">审批记录</TabsTrigger>
-                {form.enableReply && (
+                {formEnableReply && (
                   <TabsTrigger value="reply" className="flex items-center gap-1">
                     回复 
                     {replies.length > 0 && (
@@ -429,7 +505,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 </Card>
               </TabsContent>
 
-              {form.enableReply && (
+              {formEnableReply && (
                 <TabsContent value="reply" className="mt-6">
                   <Card>
                     <CardHeader>
