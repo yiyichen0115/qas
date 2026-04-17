@@ -21,9 +21,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MainLayout } from '@/components/layout/main-layout'
-import { formStorage, documentStorage } from '@/lib/storage'
+import { formStorage, documentStorage, workflowStorage, userStorage } from '@/lib/storage'
 import { getVehicleByVin, getDealerByCode, type VehicleInfo, type Dealer } from '@/lib/base-data'
-import type { FormConfig, FormField, Document } from '@/lib/types'
+import type { FormConfig, FormField, Document, WorkflowConfig, WorkflowNode, NodePermission } from '@/lib/types'
 
 // VIN联动字段映射
 const VIN_FIELD_MAPPINGS: Record<string, keyof VehicleInfo> = {
@@ -77,15 +77,17 @@ interface FieldRendererProps {
   onVinChange?: (vin: string, vehicleInfo: VehicleInfo | undefined) => void
   onDealerCodeChange?: (code: string, dealer: Dealer | undefined) => void
   linkedInfo?: { type: 'vin' | 'dealer', found: boolean }
+  fieldPermission?: { visible: boolean; editable: boolean }
 }
 
-function FieldRenderer({ 
-  field, 
-  value, 
+function FieldRenderer({
+  field,
+  value,
   onChange,
   onVinChange,
   onDealerCodeChange,
   linkedInfo,
+  fieldPermission = { visible: true, editable: false },
 }: FieldRendererProps) {
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
@@ -110,7 +112,7 @@ function FieldRenderer({
             placeholder={field.placeholder}
             value={(value as string) || ''}
             onChange={handleTextChange}
-            disabled={field.disabled}
+            disabled={field.disabled || !fieldPermission.editable}
             className={linkedInfo?.found ? 'pr-10 border-emerald-500' : ''}
           />
           {linkedInfo?.found && (
@@ -131,7 +133,7 @@ function FieldRenderer({
           placeholder={field.placeholder}
           value={(value as number) || ''}
           onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
         />
       )
     
@@ -141,7 +143,7 @@ function FieldRenderer({
           placeholder={field.placeholder}
           value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
           rows={4}
         />
       )
@@ -152,7 +154,7 @@ function FieldRenderer({
           type="date"
           value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
         />
       )
     
@@ -162,13 +164,13 @@ function FieldRenderer({
           type="datetime-local"
           value={(value as string) || ''}
           onChange={(e) => onChange(e.target.value)}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
         />
       )
     
     case 'select':
       return (
-        <Select value={(value as string) || ''} onValueChange={onChange} disabled={field.disabled}>
+        <Select value={(value as string) || ''} onValueChange={onChange} disabled={field.disabled || !fieldPermission.editable}>
           <SelectTrigger>
             <SelectValue placeholder={field.placeholder || '请选择'} />
           </SelectTrigger>
@@ -187,7 +189,7 @@ function FieldRenderer({
         <RadioGroup
           value={(value as string) || ''}
           onValueChange={onChange}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
         >
           {field.options?.map((option) => (
             <div key={option.value} className="flex items-center space-x-2">
@@ -214,7 +216,7 @@ function FieldRenderer({
                     onChange(checkboxValues.filter((v) => v !== option.value))
                   }
                 }}
-                disabled={field.disabled}
+                disabled={field.disabled || !fieldPermission.editable}
               />
               <Label htmlFor={`${field.id}-${option.value}`}>{option.label}</Label>
             </div>
@@ -227,7 +229,7 @@ function FieldRenderer({
         <Switch
           checked={(value as boolean) || false}
           onCheckedChange={onChange}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
         />
       )
     
@@ -247,7 +249,7 @@ function FieldRenderer({
           placeholder={field.placeholder}
           value={(value as string) || ''}
           onChange={handleTextChange}
-          disabled={field.disabled}
+          disabled={field.disabled || !fieldPermission.editable}
         />
       )
   }
@@ -257,7 +259,7 @@ function EditDocumentContent() {
   const router = useRouter()
   const params = useParams()
   const documentId = params.id as string
-  
+
   const [document, setDocument] = useState<Document | null>(null)
   const [form, setForm] = useState<FormConfig | null>(null)
   const [formData, setFormData] = useState<Record<string, unknown>>({})
@@ -265,8 +267,12 @@ function EditDocumentContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [vinInfo, setVinInfo] = useState<VehicleInfo | undefined>()
   const [dealerInfo, setDealerInfo] = useState<Dealer | undefined>()
+  const [workflow, setWorkflow] = useState<WorkflowConfig | null>(null)
+  const [currentNode, setCurrentNode] = useState<WorkflowNode | null>(null)
+  const [currentUser, setCurrentUser] = useState<ReturnType<typeof userStorage.getCurrentUser>>(null)
 
   useEffect(() => {
+    setCurrentUser(userStorage.getCurrentUser())
     if (documentId) {
       const loadedDoc = documentStorage.getById(documentId)
       if (loadedDoc) {
@@ -276,6 +282,18 @@ function EditDocumentContent() {
         const loadedForm = formStorage.getById(loadedDoc.formId)
         if (loadedForm) {
           setForm(loadedForm)
+        }
+
+        // 加载工作流配置
+        if (loadedDoc.workflowId) {
+          const workflows = workflowStorage.getAll()
+          const foundWorkflow = workflows.find(w => w.id === loadedDoc.workflowId)
+          if (foundWorkflow) {
+            setWorkflow(foundWorkflow)
+            // 找到当前节点
+            const currentNode = foundWorkflow.nodes.find(n => n.id === loadedDoc.currentNodeId)
+            setCurrentNode(currentNode || null)
+          }
         }
 
         // 初始化VIN和经销商联动状态
@@ -395,6 +413,67 @@ function EditDocumentContent() {
     }
   }
 
+    // 检查用户是否有指定字段编辑权限
+  const hasFieldEditPermission = (fieldId: string): boolean => {
+    if (!currentUser || !currentNode || !workflow) return false
+
+    // 获取用户的角色
+    const userRoles = currentUser.roles
+
+    // 查找当前节点的权限配置
+    const nodePermissions = currentNode.data.permissions || []
+
+    // 检查用户所属角色的字段编辑权限
+    for (const roleId of userRoles) {
+      const permission = nodePermissions.find(p => p.roleId === roleId)
+      if (permission && permission.fieldPermissions[fieldId]?.editable) {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  // 检查用户是否有指定字段查看权限
+  const hasFieldViewPermission = (fieldId: string): boolean => {
+    if (!currentUser || !currentNode || !workflow) return true
+
+    // 获取用户的角色
+    const userRoles = currentUser.roles
+
+    // 查找当前节点的权限配置
+    const nodePermissions = currentNode.data.permissions || []
+
+    // 检查用户所属角色的字段查看权限
+    for (const roleId of userRoles) {
+      const permission = nodePermissions.find(p => p.roleId === roleId)
+      if (permission && permission.fieldPermissions[fieldId]?.visible !== false) {
+        return true
+      }
+    }
+
+    return true
+  }
+
+  // 获取用户对指定字段的权限
+  const getFieldPermission = (fieldId: string): { visible: boolean; editable: boolean } => {
+    if (!currentUser || !currentNode || !workflow) {
+      return { visible: true, editable: false }
+    }
+
+    const userRoles = currentUser.roles
+    const nodePermissions = currentNode.data.permissions || []
+
+    for (const roleId of userRoles) {
+      const permission = nodePermissions.find(p => p.roleId === roleId)
+      if (permission && permission.fieldPermissions[fieldId]) {
+        return permission.fieldPermissions[fieldId]
+      }
+    }
+
+    return { visible: true, editable: false }
+  }
+
   const getLinkedInfo = (field: FormField): { type: 'vin' | 'dealer', found: boolean } | undefined => {
     if (isVinField(field.name)) {
       return { type: 'vin', found: !!vinInfo }
@@ -500,7 +579,12 @@ function EditDocumentContent() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
                   {form.fields
-                    .filter(field => !field.hidden)
+                    .filter(field => {
+                      // 检查字段是否应该显示
+                      if (field.hidden) return false
+                      const fieldPerm = getFieldPermission(field.id)
+                      return fieldPerm.visible
+                    })
                     .map((field) => {
                       // 根据字段宽度设置样式
                       const widthClass = field.width === 'full' 
@@ -536,6 +620,7 @@ function EditDocumentContent() {
                             onVinChange={handleVinChange}
                             onDealerCodeChange={handleDealerCodeChange}
                             linkedInfo={getLinkedInfo(field)}
+                            fieldPermission={getFieldPermission(field.id)}
                           />
                           {field.description && field.type !== 'description' && (
                             <p className="text-xs text-muted-foreground">{field.description}</p>

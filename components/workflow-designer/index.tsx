@@ -31,13 +31,13 @@ const defaultNodes: Node<WorkflowNodeData>[] = [
     id: 'start_1',
     type: 'start',
     position: { x: 300, y: 50 },
-    data: { label: '开始' },
+    data: { label: '开始', permissions: [] },
   },
   {
     id: 'end_1',
     type: 'end',
     position: { x: 300, y: 500 },
-    data: { label: '结束' },
+    data: { label: '结束', permissions: [] },
   },
 ]
 
@@ -56,6 +56,7 @@ interface WorkflowDesignerProps {
   onSave?: (config: WorkflowConfig) => void
   onNodesChange?: (nodes: Node<WorkflowNodeData>[]) => void
   onEdgesChange?: (edges: Edge[]) => void
+  workflowId?: string
 }
 
 export interface WorkflowDesignerRef {
@@ -63,7 +64,7 @@ export interface WorkflowDesignerRef {
 }
 
 export const WorkflowDesigner = forwardRef<WorkflowDesignerRef, WorkflowDesignerProps>(
-  function WorkflowDesigner({ initialConfig, onSave, onNodesChange: onNodesChangeCallback, onEdgesChange: onEdgesChangeCallback }, ref) {
+  function WorkflowDesigner({ initialConfig, onSave, onNodesChange: onNodesChangeCallback, onEdgesChange: onEdgesChangeCallback, workflowId }, ref) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const [nodes, setNodes, onNodesChange] = useNodesState(
     (initialConfig?.nodes as Node<WorkflowNodeData>[]) || defaultNodes
@@ -124,11 +125,11 @@ export const WorkflowDesigner = forwardRef<WorkflowDesignerRef, WorkflowDesigner
 
       // 获取画布容器的边界
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect()
-      
+
       // 计算鼠标在画布中的位置（相对于画布左上角）
       const clientX = event.clientX - reactFlowBounds.left
       const clientY = event.clientY - reactFlowBounds.top
-      
+
       // 使用 ReactFlow 实例转换坐标
       const position = reactFlowInstance.screenToFlowPosition({
         x: clientX,
@@ -146,13 +147,22 @@ export const WorkflowDesigner = forwardRef<WorkflowDesignerRef, WorkflowDesigner
           x: position.x - 70, // 居中偏移
           y: position.y - 30,
         },
-        data: { label },
+        data: { label, permissions: [] },
       }
 
       setNodes((nds) => [...nds, newNode])
     },
     [reactFlowInstance, setNodes]
   )
+
+  // 将当前workflowId存储到window对象，供子组件访问
+  useEffect(() => {
+    if (workflowId) {
+      window.currentWorkflowId = workflowId
+    } else {
+      delete window.currentWorkflowId
+    }
+  }, [workflowId])
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node<WorkflowNodeData>) => {

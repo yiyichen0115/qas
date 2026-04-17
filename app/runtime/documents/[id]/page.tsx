@@ -31,7 +31,8 @@ import {
   replyStorage,
   documentTypeStorage
 } from '@/lib/storage'
-import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType } from '@/lib/types'
+import { roleStorage } from '@/lib/storage'
+import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission } from '@/lib/types'
 
 function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -53,6 +54,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [replies, setReplies] = useState<DocumentReply[]>([])
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof userStorage.getCurrentUser>>(null)
+  const [workflow, setWorkflow] = useState<WorkflowConfig | null>(null)
+  const [currentNode, setCurrentNode] = useState<WorkflowNode | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -106,10 +109,75 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           setError(`表单不存在 (documentTypeId: ${doc.documentTypeId}, formId: ${doc.formId})`)
         }
       }
+
+      // 加载工作流配置
+      if (doc.workflowId) {
+        const workflows = workflowStorage.getAll()
+        const foundWorkflow = workflows.find(w => w.id === doc.workflowId)
+        if (foundWorkflow) {
+          setWorkflow(foundWorkflow)
+          // 找到当前节点
+          const currentNode = foundWorkflow.nodes.find(n => n.id === doc.currentNodeId)
+          setCurrentNode(currentNode || null)
+        }
+      }
     } else {
       console.error('Document not found:', resolvedParams.id)
       setError(`文档不存在 (ID: ${resolvedParams.id})`)
     }
+  }
+
+  // 检查用户是否有指定权限
+  const hasPermission = (action: 'view' | 'edit' | 'approve' | 'reject' | 'transfer' | 'comment', fieldId?: string): boolean => {
+    if (!currentUser || !currentNode || !workflow) return false
+
+    // 获取用户的角色
+    const userRoles = currentUser.roles
+
+    // 查找当前节点的权限配置
+    const nodePermissions = currentNode.data.permissions || []
+
+    // 检查用户所属角色的权限
+    for (const roleId of userRoles) {
+      const permission = nodePermissions.find(p => p.roleId === roleId)
+      if (permission) {
+        // 检查操作权限
+        if (action === 'view' && permission.canView) return true
+        if (action === 'edit' && permission.canEdit) return true
+        if (action === 'approve' && permission.canApprove) return true
+        if (action === 'reject' && permission.canReject) return true
+        if (action === 'transfer' && permission.canTransfer) return true
+        if (action === 'comment' && permission.canComment) return true
+
+        // 检查字段权限
+        if (fieldId && permission.fieldPermissions[fieldId]) {
+          const fieldPerm = permission.fieldPermissions[fieldId]
+          if (action === 'view' && fieldPerm.visible) return true
+          if (action === 'edit' && fieldPerm.editable) return true
+        }
+      }
+    }
+
+    return false
+  }
+
+  // 获取用户对指定字段的权限
+  const getFieldPermission = (fieldId: string): { visible: boolean; editable: boolean } => {
+    if (!currentUser || !currentNode || !workflow) {
+      return { visible: true, editable: false }
+    }
+
+    const userRoles = currentUser.roles
+    const nodePermissions = currentNode.data.permissions || []
+
+    for (const roleId of userRoles) {
+      const permission = nodePermissions.find(p => p.roleId === roleId)
+      if (permission && permission.fieldPermissions[fieldId]) {
+        return permission.fieldPermissions[fieldId]
+      }
+    }
+
+    return { visible: true, editable: false }
   }
 
   const handleSubmitReply = async () => {
@@ -234,8 +302,11 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   }
 
   // 判断当前用户是否可以审批
-  const canApprove = currentUser && document?.status === 'pending' &&
-    (currentUser.roles.includes('role_admin') || currentUser.roles.includes('role_approver'))
+  const canApprove = hasPermission('approve')
+  const canReject = hasPermission('reject')
+  const canEdit = hasPermission('edit')
+  const canView = hasPermission('view')
+  const canComment = hasPermission('comment')
 
   // 获取表单的enableReply属性，兼容FormConfig和DocumentType
   const formEnableReply = form?.enableReply ?? true
@@ -316,9 +387,11 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           <div className="flex items-center gap-2">
             {document.status === 'draft' && (
               <>
-                <Button variant="outline" onClick={() => router.push(`/runtime/documents/${document.id}/edit`)}>
-                  编辑
-                </Button>
+                {canEdit && (
+                  <Button variant="outline" onClick={() => router.push(`/runtime/documents/${document.id}/edit`)}>
+                    编辑
+                  </Button>
+                )}
                 <Button onClick={handleSubmitDocument}>
                   <Send className="mr-2 h-4 w-4" />
                   提交审批
@@ -330,17 +403,17 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 撤销
               </Button>
             )}
+            {canReject && (
+              <Button variant="outline" onClick={() => setShowRejectDialog(true)}>
+                <XCircle className="mr-2 h-4 w-4" />
+                驳回
+              </Button>
+            )}
             {canApprove && (
-              <>
-                <Button variant="outline" onClick={() => setShowRejectDialog(true)}>
-                  <XCircle className="mr-2 h-4 w-4" />
-                  驳回
-                </Button>
-                <Button onClick={() => setShowApproveDialog(true)}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  通过
-                </Button>
-              </>
+              <Button onClick={() => setShowApproveDialog(true)}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                通过
+              </Button>
             )}
           </div>
         </div>
@@ -352,9 +425,9 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               <TabsList>
                 <TabsTrigger value="detail">单据详情</TabsTrigger>
                 <TabsTrigger value="approval">审批记录</TabsTrigger>
-                {formEnableReply && (
+                {formEnableReply && canView && (
                   <TabsTrigger value="reply" className="flex items-center gap-1">
-                    回复 
+                    回复
                     {replies.length > 0 && (
                       <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs">
                         {replies.length}
@@ -404,11 +477,20 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {form.fields
-                        .filter(field => !field.hidden && field.type !== 'divider' && field.type !== 'description')
+                        .filter(field => {
+                          // 检查字段是否应该显示
+                          if (field.hidden) return false
+                          if (field.type === 'divider' || field.type === 'description') return false
+
+                          // 检查用户对该字段的查看权限
+                          const fieldPerm = getFieldPermission(field.id)
+                          return fieldPerm.visible
+                        })
                         .map((field) => {
                           const value = document.formData[field.name]
+                          const fieldPerm = getFieldPermission(field.id)
                           let displayValue = '-'
-                          
+
                           if (value !== undefined && value !== null && value !== '') {
                             if (Array.isArray(value)) {
                               // 多选或复选框
@@ -426,11 +508,11 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                               displayValue = String(value)
                             }
                           }
-                          
+
                           // 根据字段宽度设置样式
-                          const widthClass = field.width === 'full' 
-                            ? 'col-span-1 md:col-span-2 lg:col-span-3' 
-                            : field.width === 'half' 
+                          const widthClass = field.width === 'full'
+                            ? 'col-span-1 md:col-span-2 lg:col-span-3'
+                            : field.width === 'half'
                               ? 'col-span-1 md:col-span-1 lg:col-span-1'
                               : field.width === 'third'
                                 ? 'col-span-1'
@@ -439,11 +521,16 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                           // textarea 类型默认整行
                           const isFullWidth = field.type === 'textarea'
                           const finalWidthClass = isFullWidth ? 'col-span-1 md:col-span-2 lg:col-span-3' : widthClass
-                          
+
                           return (
                             <div key={field.id} className={`rounded-lg bg-muted/30 p-3 ${finalWidthClass}`}>
                               <div className="text-xs text-muted-foreground mb-1">{field.label}</div>
-                              <div className="text-sm font-medium">{displayValue}</div>
+                              <div className="text-sm font-medium">
+                                {displayValue}
+                                {!fieldPerm.editable && (
+                                  <span className="ml-2 text-xs text-muted-foreground">(只读)</span>
+                                )}
+                              </div>
                             </div>
                           )
                         })}

@@ -313,6 +313,8 @@ export interface WorkflowNodeData {
   notifications?: NotificationConfig
   timeout?: number
   timeoutAction?: 'approve' | 'reject' | 'notify'
+  // 权限配置
+  permissions?: NodePermission[] // 按角色配置的权限
 }
 
 export interface WorkflowNode {
@@ -438,6 +440,26 @@ export interface FieldPermission {
   roleId: string
   visible: boolean
   editable: boolean
+}
+
+// 节点权限配置
+export interface NodePermission {
+  roleId: string // 用户组/角色ID
+  // 字段权限
+  fieldPermissions: Record<string, { visible: boolean; editable: boolean }> // 字段ID -> 权限
+  // 节点操作权限
+  canView: boolean // 是否可以查看该节点的单据
+  canEdit: boolean // 是否可以编辑该节点的单据
+  canApprove: boolean // 是否可以审批（仅审批节点）
+  canReject: boolean // 是否可以驳回（仅审批节点）
+  canTransfer: boolean // 是否可以转单
+  canComment: boolean // 是否可以添加评论
+}
+
+// 批量字段权限配置
+export interface BatchFieldPermission {
+  targetRoleIds: string[] // 目标角色ID列表
+  fieldPermissions: Record<string, { visible: boolean; editable: boolean }> // 字段权限
 }
 
 // ==================== 应用相关类型 ====================

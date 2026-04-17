@@ -542,6 +542,7 @@ function WorkflowDesignerContent() {
             key={designerKey}
             initialConfig={currentWorkflow || undefined}
             onSave={handleSave}
+            workflowId={currentWorkflow?.id}
             ref={workflowDesignerRef}
           />
         </div>
