@@ -466,79 +466,129 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 </div>
 
-                {/* 表单数据 - 参考图片的多列布局 */}
+                {/* 表单数据 - 参考图片的多列布局，支持分割线 */}
                 <div className="rounded-lg border border-border bg-card">
                   <div className="flex items-center gap-3 border-b border-border px-4 py-3">
                     <div className="h-4 w-1 rounded-full bg-primary" />
                     <h3 className="text-sm font-medium text-foreground">表单内容</h3>
                   </div>
                   <div className="p-4">
-                    <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {form.fields
-                        .filter(field => {
-                          if (field.hidden) return false
-                          if (field.type === 'divider' || field.type === 'description') return false
+                    {(() => {
+                      // 将字段按分割线分组
+                      const groups: { divider?: typeof form.fields[0]; fields: typeof form.fields }[] = []
+                      let currentGroup: typeof form.fields = []
+                      
+                      form.fields.forEach(field => {
+                        if (field.hidden) return
+                        
+                        if (field.type === 'divider') {
+                          // 保存之前的分组
+                          if (currentGroup.length > 0) {
+                            groups.push({ fields: currentGroup })
+                          }
+                          // 开始新分组，带分割线标题
+                          groups.push({ divider: field, fields: [] })
+                          currentGroup = []
+                        } else if (field.type === 'description') {
+                          // 跳过描述字段
+                          return
+                        } else {
                           const fieldPerm = getFieldPermission(field.id)
-                          return fieldPerm.visible
-                        })
-                        .map((field) => {
-                          const value = document.formData[field.name]
-                          const fieldPerm = getFieldPermission(field.id)
-                          let displayValue = '-'
-
-                          if (value !== undefined && value !== null && value !== '') {
-                            if (Array.isArray(value)) {
-                              const labels = value.map(v => {
-                                const opt = field.options?.find(o => o.value === v)
-                                return opt?.label || v
-                              })
-                              displayValue = labels.join(', ')
-                            } else if (typeof value === 'boolean') {
-                              displayValue = value ? '是' : '否'
-                            } else if (field.type === 'select' || field.type === 'radio') {
-                              const opt = field.options?.find(o => o.value === value)
-                              displayValue = opt?.label || String(value)
+                          if (fieldPerm.visible) {
+                            // 查找最后一个带divider的分组
+                            const lastDividerGroup = groups.findLast(g => g.divider)
+                            if (lastDividerGroup && lastDividerGroup.fields.length === 0 && groups[groups.length - 1] === lastDividerGroup) {
+                              lastDividerGroup.fields.push(field)
                             } else {
-                              displayValue = String(value)
+                              currentGroup.push(field)
                             }
                           }
-
-                          // 根据字段宽度和类型设置样式
-                          const getWidthClass = () => {
-                            if (field.type === 'textarea') return 'sm:col-span-2 lg:col-span-3'
-                            switch (field.width) {
-                              case 'full': return 'sm:col-span-2 lg:col-span-3'
-                              case 'half': return 'lg:col-span-1'
-                              case 'third': return ''
-                              default: return ''
-                            }
-                          }
-
-                          // textarea 类型使用特殊展示
-                          if (field.type === 'textarea') {
-                            return (
-                              <div key={field.id} className={`${getWidthClass()}`}>
-                                <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
-                                <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
-                                  {displayValue}
-                                </div>
-                              </div>
-                            )
-                          }
-
-                          return (
-                            <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
-                              <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
-                              <span className="text-sm font-medium truncate">
-                                {displayValue}
-                                {!fieldPerm.editable && canEdit && (
-                                  <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
-                                )}
+                        }
+                      })
+                      
+                      // 添加最后一组
+                      if (currentGroup.length > 0) {
+                        groups.push({ fields: currentGroup })
+                      }
+                      
+                      return groups.map((group, groupIndex) => (
+                        <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
+                          {/* 分割线标题 */}
+                          {group.divider && (
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="h-px flex-1 bg-border" />
+                              <span className="text-sm font-medium text-muted-foreground px-2">
+                                {group.divider.label || '分割线'}
                               </span>
+                              <div className="h-px flex-1 bg-border" />
                             </div>
-                          )
-                        })}
-                    </div>
+                          )}
+                          
+                          {/* 字段网格 */}
+                          {group.fields.length > 0 && (
+                            <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                              {group.fields.map((field) => {
+                                const value = document.formData[field.name]
+                                const fieldPerm = getFieldPermission(field.id)
+                                let displayValue = '-'
+
+                                if (value !== undefined && value !== null && value !== '') {
+                                  if (Array.isArray(value)) {
+                                    const labels = value.map(v => {
+                                      const opt = field.options?.find(o => o.value === v)
+                                      return opt?.label || v
+                                    })
+                                    displayValue = labels.join(', ')
+                                  } else if (typeof value === 'boolean') {
+                                    displayValue = value ? '是' : '否'
+                                  } else if (field.type === 'select' || field.type === 'radio') {
+                                    const opt = field.options?.find(o => o.value === value)
+                                    displayValue = opt?.label || String(value)
+                                  } else {
+                                    displayValue = String(value)
+                                  }
+                                }
+
+                                // 根据字段宽度和类型设置样式
+                                const getWidthClass = () => {
+                                  if (field.type === 'textarea') return 'sm:col-span-2 lg:col-span-3'
+                                  switch (field.width) {
+                                    case 'full': return 'sm:col-span-2 lg:col-span-3'
+                                    case 'half': return 'lg:col-span-1'
+                                    case 'third': return ''
+                                    default: return ''
+                                  }
+                                }
+
+                                // textarea 类型使用特殊展示
+                                if (field.type === 'textarea') {
+                                  return (
+                                    <div key={field.id} className={`${getWidthClass()}`}>
+                                      <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
+                                      <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
+                                        {displayValue}
+                                      </div>
+                                    </div>
+                                  )
+                                }
+
+                                return (
+                                  <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
+                                    <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
+                                    <span className="text-sm font-medium truncate">
+                                      {displayValue}
+                                      {!fieldPerm.editable && canEdit && (
+                                        <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
+                                      )}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    })()}
                   </div>
                 </div>
               </TabsContent>
