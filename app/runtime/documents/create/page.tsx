@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Send, Loader2, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Save, Send, Loader2, CheckCircle2, X, Car, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -12,6 +12,12 @@ import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -277,6 +283,8 @@ function CreateDocumentContent() {
   const [documentNumber, setDocumentNumber] = useState('')
   const [vinInfo, setVinInfo] = useState<VehicleInfo | undefined>()
   const [dealerInfo, setDealerInfo] = useState<Dealer | undefined>()
+  const [showVinDialog, setShowVinDialog] = useState(false)
+  const [showDealerDialog, setShowDealerDialog] = useState(false)
 
   useEffect(() => {
     if (documentTypeId) {
@@ -310,6 +318,7 @@ function CreateDocumentContent() {
 
   // VIN联动处理
   const handleVinChange = useCallback((vin: string, vehicleInfo: VehicleInfo | undefined) => {
+    const previousVinInfo = vinInfo
     setVinInfo(vehicleInfo)
     
     if (vehicleInfo && documentType) {
@@ -333,11 +342,17 @@ function CreateDocumentContent() {
       if (Object.keys(updates).length > 0) {
         setFormData(prev => ({ ...prev, ...updates }))
       }
+      
+      // 首次识别到车辆信息时弹窗提示
+      if (!previousVinInfo) {
+        setShowVinDialog(true)
+      }
     }
-  }, [documentType])
+  }, [documentType, vinInfo])
 
   // 经销商编码联动处理
   const handleDealerCodeChange = useCallback((code: string, dealer: Dealer | undefined) => {
+    const previousDealerInfo = dealerInfo
     setDealerInfo(dealer)
     
     if (dealer && documentType) {
@@ -360,8 +375,13 @@ function CreateDocumentContent() {
       if (Object.keys(updates).length > 0) {
         setFormData(prev => ({ ...prev, ...updates }))
       }
+      
+      // 首次识别到经销商信息时弹窗提示
+      if (!previousDealerInfo) {
+        setShowDealerDialog(true)
+      }
     }
-  }, [documentType])
+  }, [documentType, dealerInfo])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -520,40 +540,83 @@ function CreateDocumentContent() {
           </div>
         </div>
 
+        {/* VIN识别弹窗 */}
+        <Dialog open={showVinDialog} onOpenChange={setShowVinDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                <Car className="h-5 w-5" />
+                已识别车辆信息
+              </DialogTitle>
+            </DialogHeader>
+            {vinInfo && (
+              <div className="space-y-3">
+                <div className="rounded-lg bg-emerald-50 p-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">车型平台</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.platformName}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">配置</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.configName}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">车辆代码</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.vehicleCode}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">配置代码</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.configCode}</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">相关字段已自动填充</p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* 经销商识别弹窗 */}
+        <Dialog open={showDealerDialog} onOpenChange={setShowDealerDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-blue-700">
+                <Building2 className="h-5 w-5" />
+                已识别经销商
+              </DialogTitle>
+            </DialogHeader>
+            {dealerInfo && (
+              <div className="space-y-3">
+                <div className="rounded-lg bg-blue-50 p-4">
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">经销商名称</span>
+                      <p className="font-medium text-blue-700">{dealerInfo.name}</p>
+                    </div>
+                    {dealerInfo.address && (
+                      <div>
+                        <span className="text-muted-foreground">地址</span>
+                        <p className="font-medium text-blue-700">{dealerInfo.address}</p>
+                      </div>
+                    )}
+                    {dealerInfo.contactPerson && (
+                      <div>
+                        <span className="text-muted-foreground">联系人</span>
+                        <p className="font-medium text-blue-700">{dealerInfo.contactPerson}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">相关字段已自动填充</p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* 表单内容 */}
         <div className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-5xl">
-            {/* VIN联动提示 */}
-            {vinInfo && (
-              <Card className="mb-4 border-emerald-200 bg-emerald-50">
-                <CardContent className="py-3">
-                  <div className="flex items-center gap-2 text-emerald-700">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">已识别车辆信息</span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-emerald-600">
-                    <span>车型平台: {vinInfo.platformName}</span>
-                    <span>配置: {vinInfo.configName}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 经销商联动提示 */}
-            {dealerInfo && (
-              <Card className="mb-4 border-blue-200 bg-blue-50">
-                <CardContent className="py-3">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">已识别经销商</span>
-                  </div>
-                  <div className="mt-2 text-sm text-blue-600">
-                    {dealerInfo.name}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             <Card>
               <CardHeader>
                 <CardTitle>{documentType.name}</CardTitle>
