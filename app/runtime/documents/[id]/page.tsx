@@ -687,8 +687,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     )}
                   </div>
 
-                  {/* 评论输入框 */}
-                  {currentUser && (
+                  {/* 评论输入框 - 有工作流时检查canComment权限，无工作流时只要登录即可评论 */}
+                  {currentUser && (canComment || !workflow) && (
                     <div className="p-4 border-t border-border bg-card">
                       {replyingTo && (
                         <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -745,7 +745,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             <DialogDescription>确认通过此单据的审批</DialogDescription>
           </DialogHeader>
           <Textarea
-            placeholder="输入审批意见（可选）"
+            placeholder="输入审批意��（可选）"
             value={approvalComment}
             onChange={(e) => setApprovalComment(e.target.value)}
             rows={3}
