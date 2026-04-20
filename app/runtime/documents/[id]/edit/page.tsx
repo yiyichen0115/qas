@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -482,7 +482,7 @@ function EditDocumentContent() {
     return true
   }
 
-  // 获取用户对指定字段的权限
+  // 获取用户对指定字段的���限
   const getFieldPermission = (fieldId: string): { visible: boolean; editable: boolean } => {
     if (!currentUser || !currentNode || !workflow) {
       return { visible: true, editable: false }
@@ -639,15 +639,39 @@ function EditDocumentContent() {
         {/* 表单内容 */}
         <div className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-5xl">
-            <Card>
-              <CardHeader>
-                <CardTitle>{form.name}</CardTitle>
+            {/* 基本信息 */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm text-muted-foreground shrink-0">单号</span>
+                  <span className="font-mono text-sm font-medium">{document?.documentNumber}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm text-muted-foreground shrink-0">单据类型</span>
+                  <span className="text-sm font-medium">{form.name}</span>
+                </div>
                 {form.description && (
-                  <p className="text-sm text-muted-foreground">{form.description}</p>
+                  <div className="flex items-baseline gap-2 sm:col-span-2">
+                    <span className="text-sm text-muted-foreground shrink-0">说明</span>
+                    <span className="text-sm">{form.description}</span>
+                  </div>
                 )}
-              </CardHeader>
-              <CardContent>
-                {(() => {
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+            
+            {/* 表单内容 */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+              </div>
+              {(() => {
                   // 将字段按分割线分组
                   const visibleFields = form.fields.filter(field => {
                     if (field.hidden) return false
@@ -694,7 +718,7 @@ function EditDocumentContent() {
                       
                       {/* 字段网格 */}
                       {group.fields.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
+                        <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                           {group.fields.map((field) => {
                             const widthClass = field.width === 'full' 
                               ? 'col-span-1 md:col-span-2 lg:col-span-3' 
@@ -742,8 +766,7 @@ function EditDocumentContent() {
                     </div>
                   ))
                 })()}
-              </CardContent>
-            </Card>
+            </div>
           </div>
         </div>
       </div>

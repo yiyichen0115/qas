@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -624,19 +624,34 @@ function CreateDocumentContent() {
         {/* 表单内容 */}
         <div className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-5xl">
-            {/* 标题区域 */}
+            {/* 基本信息 */}
             <div className="mb-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-5 w-1 rounded-full bg-primary" />
-                <h2 className="text-lg font-medium">{documentType.name}</h2>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-medium text-foreground">基本信息</h3>
               </div>
-              {documentType.description && (
-                <p className="text-sm text-muted-foreground ml-4">{documentType.description}</p>
-              )}
+              <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm text-muted-foreground shrink-0">单据类型</span>
+                  <span className="text-sm font-medium">{documentType.name}</span>
+                </div>
+                {documentType.description && (
+                  <div className="flex items-baseline gap-2 sm:col-span-2 lg:col-span-3">
+                    <span className="text-sm text-muted-foreground shrink-0">说明</span>
+                    <span className="text-sm">{documentType.description}</span>
+                  </div>
+                )}
+              </div>
             </div>
+
+            <Separator className="my-6" />
             
-            {/* 表单字段 */}
+            {/* 表单内容 */}
             <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+              </div>
               {documentType.fields.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
               )}
@@ -684,7 +699,7 @@ function CreateDocumentContent() {
                       
                       {/* 字段网格 */}
                       {group.fields.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
+                        <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                           {group.fields.map((field) => {
                             const widthClass = field.width === 'full' 
                               ? 'col-span-1 md:col-span-2 lg:col-span-3' 
