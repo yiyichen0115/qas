@@ -129,13 +129,74 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
   // 检查用户是否有指定权限
   const hasPermission = (action: 'view' | 'edit' | 'approve' | 'reject' | 'transfer' | 'comment', fieldId?: string): boolean => {
-    if (!currentUser || !currentNode || !workflow) return false
-
+    if (!currentUser) return false
+    
     // 获取用户的角色
-    const userRoles = currentUser.roles
+    const userRoles = currentUser.roles || []
+    
+    // 如果没有工作流配置，使用默认权限逻辑
+    if (!workflow || !currentNode) {
+      // 创建者总是可以查看和评论
+      if (document?.createdBy === currentUser.id) {
+        if (action === 'view' || action === 'comment') return true
+        // 草稿状态下创建者可以编辑
+        if (action === 'edit' && document?.status === 'draft') return true
+      }
+      
+      // 管理员和工程师角色有审批权限
+      const hasAdminRole = userRoles.some(r => r === 'admin' || r === 'engineer')
+      if (hasAdminRole) {
+        if (action === 'view' || action === 'comment') return true
+        // 审批中状态可以审批/驳回
+        if ((action === 'approve' || action === 'reject') && document?.status === 'pending') return true
+      }
+      
+      // 所有登录用户都可以查看和评论
+      if (action === 'view' || action === 'comment') return true
+      
+      return false
+    }
 
     // 查找当前节点的权限配置
     const nodePermissions = currentNode.data.permissions || []
+    
+    // 如果节点没有权限配置，使用默认逻辑
+    if (nodePermissions.length === 0) {
+      // 创建者总是可以查看和评论
+      if (document?.createdBy === currentUser.id) {
+        if (action === 'view' || action === 'comment') return true
+        if (action === 'edit' && document?.status === 'draft') return true
+      }
+      
+      // 检查工作流事件中的权限配置
+      const events = workflow.events || []
+      const currentStatus = document?.status
+      
+      for (const event of events) {
+        // 根据当前状态找到可执行的事件
+        if (event.fromStatus?.includes(currentStatus || '')) {
+          // 检查用户角色是否有权限执行该事件
+          const eventPermissions = event.permissions || []
+          const hasEventPermission = eventPermissions.some(p => userRoles.includes(p))
+          
+          if (hasEventPermission) {
+            if (event.type === 'approve' && (action === 'approve' || action === 'reject')) return true
+            if (event.type === 'submit' && action === 'edit') return true
+          }
+        }
+      }
+      
+      // 管理员和工程师有审批权限
+      const hasAdminRole = userRoles.some(r => r === 'admin' || r === 'engineer')
+      if (hasAdminRole && document?.status === 'pending') {
+        if (action === 'approve' || action === 'reject' || action === 'view' || action === 'comment') return true
+      }
+      
+      // 所有登录用户都可以查看和评论
+      if (action === 'view' || action === 'comment') return true
+      
+      return false
+    }
 
     // 检查用户所属角色的权限
     for (const roleId of userRoles) {
@@ -687,8 +748,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                     )}
                   </div>
 
-                  {/* 评论输入框 - 有工作流时检查canComment权限，无工作流时只要登录即可评论 */}
-                  {currentUser && (canComment || !workflow) && (
+                  {/* 评论输入框 */}
+                  {currentUser && canComment && (
                     <div className="p-4 border-t border-border bg-card">
                       {replyingTo && (
                         <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
