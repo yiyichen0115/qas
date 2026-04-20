@@ -205,7 +205,7 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
         <TabsContent value="basic" className="flex-1 overflow-y-auto p-3">
           <FieldGroup className="space-y-3">
             <Field>
-              <FieldLabel className="text-xs">节点名称</FieldLabel>
+              <FieldLabel className="text-xs">节点���称</FieldLabel>
               <Input
                 value={localData.label}
                 onChange={(e) => updateData({ label: e.target.value })}
@@ -541,14 +541,19 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
 
         <TabsContent value="permissions" className="flex-1 overflow-y-auto p-3">
           <FieldGroup className="space-y-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Shield className="h-4 w-4" />
-              <FieldLabel className="text-sm font-medium">节点权限配置</FieldLabel>
+            {/* 分组标题 - 参考图片样式 */}
+            <div className="flex items-center gap-3 pb-2 border-b border-border">
+              <div className="h-4 w-1 rounded-full bg-primary" />
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">节点权限配置</span>
+              </div>
             </div>
 
             {roles.length === 0 ? (
-              <div className="rounded-lg bg-muted/50 p-4 text-center">
-                <p className="text-xs text-muted-foreground">暂无用户组，请先创建用户组</p>
+              <div className="rounded-lg bg-muted/30 p-6 text-center">
+                <Users className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">暂无用户组，请先创建用户组</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -564,20 +569,20 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                     fieldPermissions: {}
                   }
                   return (
-                    <div key={role.id} className="border border-border rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">{role.name}</span>
-                        </div>
+                    <div key={role.id} className="rounded-lg border border-border bg-card overflow-hidden">
+                      {/* 角色标题 */}
+                      <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">{role.name}</span>
                       </div>
 
-                      <div className="space-y-3">
-                        {/* 基础权限 */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <Field className="flex items-center justify-between">
-                            <FieldLabel className="text-xs">可查看</FieldLabel>
+                      <div className="p-3 space-y-3">
+                        {/* 基础权限 - 两列布局 */}
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">可查看</span>
                             <Switch
+                              className="scale-90"
                               checked={permission?.canView !== false}
                               onCheckedChange={(checked) => {
                                 const updatedPermissions = localData.permissions?.map(p =>
@@ -602,14 +607,14 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                                 updateData({ permissions: updatedPermissions })
                               }}
                             />
-                          </Field>
+                          </div>
 
-                          <Field className="flex items-center justify-between">
-                            <FieldLabel className="text-xs">可编辑</FieldLabel>
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">可编辑</span>
                             <Switch
+                              className="scale-90"
                               checked={permission?.canEdit !== false}
                               onCheckedChange={(checked) => {
-                                // 切换编辑权限时，默认不设置字段权限
                                 const updatedPermissions = localData.permissions?.map(p =>
                                   p.roleId === role.id
                                     ? { ...p, canEdit: checked }
@@ -632,83 +637,84 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                                 updateData({ permissions: updatedPermissions })
                               }}
                             />
-                          </Field>
+                          </div>
 
-                          {/* 字段权限配置按钮 */}
-                          {permission?.canEdit && (
-                            <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center gap-2">
-                                <List className="h-3 w-3" />
-                                <FieldLabel className="text-xs">字段权限</FieldLabel>
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => {
-                                  setExpandedFieldConfigs(prev => ({
-                                    ...prev,
-                                    [role.id]: !prev[role.id]
-                                  }))
-                                  // 初始化当前角色的已选择字段
-                                  if (!expandedFieldConfigs[role.id]) {
-                                    const roleSelectedFields = currentForm?.fields.filter(field =>
-                                      permission?.fieldPermissions?.[field.id]?.editable
+                          {/* 审批相关权限 */}
+                          {(nodeType === 'approve' || nodeType === 'review' || nodeType === 'countersign') && (
+                            <>
+                              <div className="flex items-center justify-between py-1">
+                                <span className="text-xs text-muted-foreground">可审批</span>
+                                <Switch
+                                  className="scale-90"
+                                  checked={permission?.canApprove !== false}
+                                  onCheckedChange={(checked) => {
+                                    const updatedPermissions = localData.permissions?.map(p =>
+                                      p.roleId === role.id
+                                        ? { ...p, canApprove: checked }
+                                        : p
                                     ) || []
-                                    setSelectedFields(prev => ({
-                                      ...prev,
-                                      [role.id]: roleSelectedFields
-                                    }))
-                                  }
-                                }}
-                              >
-                                <Edit3 className="mr-1 h-3 w-3" />
-                                {expandedFieldConfigs[role.id] ? '收起' : '配置'}
-                              </Button>
-                            </div>
+
+                                    if (!updatedPermissions.find(p => p.roleId === role.id)) {
+                                      updatedPermissions.push({
+                                        roleId: role.id,
+                                        canView: false,
+                                        canEdit: false,
+                                        canApprove: checked,
+                                        canReject: false,
+                                        canTransfer: false,
+                                        canComment: false,
+                                        fieldPermissions: {}
+                                      })
+                                    }
+
+                                    updateData({ permissions: updatedPermissions })
+                                  }}
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-between py-1">
+                                <span className="text-xs text-muted-foreground">可驳回</span>
+                                <Switch
+                                  className="scale-90"
+                                  checked={permission?.canReject !== false}
+                                  onCheckedChange={(checked) => {
+                                    const updatedPermissions = localData.permissions?.map(p =>
+                                      p.roleId === role.id
+                                        ? { ...p, canReject: checked }
+                                        : p
+                                    ) || []
+
+                                    if (!updatedPermissions.find(p => p.roleId === role.id)) {
+                                      updatedPermissions.push({
+                                        roleId: role.id,
+                                        canView: false,
+                                        canEdit: false,
+                                        canApprove: false,
+                                        canReject: checked,
+                                        canTransfer: false,
+                                        canComment: false,
+                                        fieldPermissions: {}
+                                      })
+                                    }
+
+                                    updateData({ permissions: updatedPermissions })
+                                  }}
+                                />
+                              </div>
+                            </>
                           )}
-                        </div>
 
-                        {/* 审批相关权限 */}
-                        {(nodeType === 'approve' || nodeType === 'review' || nodeType === 'countersign') && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <Field className="flex items-center justify-between">
-                              <FieldLabel className="text-xs">可审批</FieldLabel>
+                          {/* 转单权限 */}
+                          {nodeType === 'transfer' && (
+                            <div className="flex items-center justify-between py-1">
+                              <span className="text-xs text-muted-foreground">可转单</span>
                               <Switch
-                                checked={permission?.canApprove !== false}
+                                className="scale-90"
+                                checked={permission?.canTransfer !== false}
                                 onCheckedChange={(checked) => {
                                   const updatedPermissions = localData.permissions?.map(p =>
                                     p.roleId === role.id
-                                      ? { ...p, canApprove: checked }
-                                      : p
-                                  ) || []
-
-                                  if (!updatedPermissions.find(p => p.roleId === role.id)) {
-                                    updatedPermissions.push({
-                                      roleId: role.id,
-                                      canView: false,
-                                      canEdit: false,
-                                      canApprove: checked,
-                                      canReject: false,
-                                      canTransfer: false,
-                                      canComment: false,
-                                      fieldPermissions: {}
-                                    })
-                                  }
-
-                                  updateData({ permissions: updatedPermissions })
-                                }}
-                              />
-                            </Field>
-
-                            <Field className="flex items-center justify-between">
-                              <FieldLabel className="text-xs">可驳回</FieldLabel>
-                              <Switch
-                                checked={permission?.canReject !== false}
-                                onCheckedChange={(checked) => {
-                                  const updatedPermissions = localData.permissions?.map(p =>
-                                    p.roleId === role.id
-                                      ? { ...p, canReject: checked }
+                                      ? { ...p, canTransfer: checked }
                                       : p
                                   ) || []
 
@@ -718,8 +724,8 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                                       canView: false,
                                       canEdit: false,
                                       canApprove: false,
-                                      canReject: checked,
-                                      canTransfer: false,
+                                      canReject: false,
+                                      canTransfer: checked,
                                       canComment: false,
                                       fieldPermissions: {}
                                     })
@@ -728,20 +734,18 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                                   updateData({ permissions: updatedPermissions })
                                 }}
                               />
-                            </Field>
-                          </div>
-                        )}
+                            </div>
+                          )}
 
-                        {/* 其他操作权限 */}
-                        {nodeType === 'transfer' && (
-                          <Field className="flex items-center justify-between">
-                            <FieldLabel className="text-xs">可转单</FieldLabel>
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">可评论</span>
                             <Switch
-                              checked={permission?.canTransfer !== false}
+                              className="scale-90"
+                              checked={permission?.canComment !== false}
                               onCheckedChange={(checked) => {
                                 const updatedPermissions = localData.permissions?.map(p =>
                                   p.roleId === role.id
-                                    ? { ...p, canTransfer: checked }
+                                    ? { ...p, canComment: checked }
                                     : p
                                 ) || []
 
@@ -752,8 +756,8 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                                     canEdit: false,
                                     canApprove: false,
                                     canReject: false,
-                                    canTransfer: checked,
-                                    canComment: false,
+                                    canTransfer: false,
+                                    canComment: checked,
                                     fieldPermissions: {}
                                   })
                                 }
@@ -761,137 +765,133 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                                 updateData({ permissions: updatedPermissions })
                               }}
                             />
-                          </Field>
+                          </div>
+                        </div>
+
+                        {/* 字段权限配置按钮 */}
+                        {permission?.canEdit && (
+                          <div className="pt-2 border-t border-border">
+                            <button
+                              className="flex w-full items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={() => {
+                                setExpandedFieldConfigs(prev => ({
+                                  ...prev,
+                                  [role.id]: !prev[role.id]
+                                }))
+                                if (!expandedFieldConfigs[role.id]) {
+                                  const roleSelectedFields = currentForm?.fields.filter(field =>
+                                    permission?.fieldPermissions?.[field.id]?.editable
+                                  ) || []
+                                  setSelectedFields(prev => ({
+                                    ...prev,
+                                    [role.id]: roleSelectedFields
+                                  }))
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2">
+                                <List className="h-3.5 w-3.5" />
+                                <span>字段编辑权限</span>
+                              </div>
+                              <Edit3 className={`h-3.5 w-3.5 transition-transform ${expandedFieldConfigs[role.id] ? 'rotate-45' : ''}`} />
+                            </button>
+                          </div>
                         )}
-
-                        <Field className="flex items-center justify-between">
-                          <FieldLabel className="text-xs">可评论</FieldLabel>
-                          <Switch
-                            checked={permission?.canComment !== false}
-                            onCheckedChange={(checked) => {
-                              const updatedPermissions = localData.permissions?.map(p =>
-                                p.roleId === role.id
-                                  ? { ...p, canComment: checked }
-                                  : p
-                              ) || []
-
-                              if (!updatedPermissions.find(p => p.roleId === role.id)) {
-                                updatedPermissions.push({
-                                  roleId: role.id,
-                                  canView: false,
-                                  canEdit: false,
-                                  canApprove: false,
-                                  canReject: false,
-                                  canTransfer: false,
-                                  canComment: checked,
-                                  fieldPermissions: {}
-                                })
-                              }
-
-                              updateData({ permissions: updatedPermissions })
-                            }}
-                          />
-                        </Field>
                       </div>
 
-                      {/* 字段权限配置弹窗 */}
+                      {/* 字段权限配置面板 - 参考图片复型表单样式 */}
                       {expandedFieldConfigs[role.id] && currentForm && (
-                        <div className="mt-3 border-t border-border pt-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <FieldLabel className="text-xs">选择可编辑的字段</FieldLabel>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => {
-                                    // 全选
-                                    const allFields = currentForm.fields.filter(f => !f.hidden)
-                                    const newPermissions = { ...permission?.fieldPermissions || {} }
-                                    allFields.forEach(field => {
-                                      newPermissions[field.id] = { visible: true, editable: true }
-                                    })
-                                    updatePermissionField(role.id, newPermissions)
-                                    setSelectedFields(prev => ({
-                                      ...prev,
-                                      [role.id]: allFields
-                                    }))
-                                  }}
-                                >
-                                  全选
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 px-2 text-xs"
-                                  onClick={() => {
-                                    // 取消全选
-                                    const newPermissions = { ...permission?.fieldPermissions || {} }
-                                    Object.keys(newPermissions).forEach(key => {
-                                      newPermissions[key] = { visible: true, editable: false }
-                                    })
-                                    updatePermissionField(role.id, newPermissions)
-                                    setSelectedFields(prev => ({
-                                      ...prev,
-                                      [role.id]: []
-                                    }))
-                                  }}
-                                >
-                                  取消
-                                </Button>
-                              </div>
+                        <div className="border-t border-border bg-muted/20 p-3">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-xs font-medium">选择可编辑字段</span>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => {
+                                  const allFields = currentForm.fields.filter(f => !f.hidden)
+                                  const newPermissions = { ...permission?.fieldPermissions || {} }
+                                  allFields.forEach(field => {
+                                    newPermissions[field.id] = { visible: true, editable: true }
+                                  })
+                                  updatePermissionField(role.id, newPermissions)
+                                  setSelectedFields(prev => ({
+                                    ...prev,
+                                    [role.id]: allFields
+                                  }))
+                                }}
+                              >
+                                全选
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => {
+                                  const newPermissions = { ...permission?.fieldPermissions || {} }
+                                  Object.keys(newPermissions).forEach(key => {
+                                    newPermissions[key] = { visible: true, editable: false }
+                                  })
+                                  updatePermissionField(role.id, newPermissions)
+                                  setSelectedFields(prev => ({
+                                    ...prev,
+                                    [role.id]: []
+                                  }))
+                                }}
+                              >
+                                清空
+                              </Button>
                             </div>
+                          </div>
 
-                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                              {currentForm.fields
-                                .filter(field => !field.hidden && field.type !== 'divider' && field.type !== 'description')
-                                .map((field) => {
-                                  const fieldPerm = permission?.fieldPermissions[field.id] || { visible: true, editable: false }
-                                  const roleSelectedFields = selectedFields[role.id] || []
-                                  const isSelected = roleSelectedFields.some(f => f.id === field.id)
+                          {/* 字段列表 - 三列网格布局 */}
+                          <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto">
+                            {currentForm.fields
+                              .filter(field => !field.hidden && field.type !== 'divider' && field.type !== 'description')
+                              .map((field) => {
+                                const roleSelectedFields = selectedFields[role.id] || []
+                                const isSelected = roleSelectedFields.some(f => f.id === field.id)
 
-                                  return (
-                                    <label
-                                      key={field.id}
-                                      className="flex items-center justify-between p-2 rounded border border-border hover:bg-muted/50 cursor-pointer"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <input
-                                          type="checkbox"
-                                          checked={isSelected}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              const newSelected = [...roleSelectedFields, field]
-                                              setSelectedFields(prev => ({
-                                                ...prev,
-                                                [role.id]: newSelected
-                                              }))
-                                              const newPermissions = { ...permission?.fieldPermissions || {} }
-                                              newPermissions[field.id] = { visible: true, editable: true }
-                                              updatePermissionField(role.id, newPermissions)
-                                            } else {
-                                              const newSelected = roleSelectedFields.filter(f => f.id !== field.id)
-                                              setSelectedFields(prev => ({
-                                                ...prev,
-                                                [role.id]: newSelected
-                                              }))
-                                              const newPermissions = { ...permission?.fieldPermissions || {} }
-                                              delete newPermissions[field.id]
-                                              updatePermissionField(role.id, newPermissions)
-                                            }
-                                          }}
-                                          className="accent-primary"
-                                        />
-                                        <span className="text-xs">{field.label}</span>
-                                      </div>
-                                      {fieldPerm.editable && (
-                                        <Edit3 className="h-3 w-3 text-primary" />
-                                      )}
-                                    </label>
-                                  )
-                                })}
-                            </div>
+                                return (
+                                  <label
+                                    key={field.id}
+                                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-xs cursor-pointer transition-colors ${
+                                      isSelected 
+                                        ? 'bg-primary/10 text-primary border border-primary/20' 
+                                        : 'bg-card border border-border hover:bg-muted/50'
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          const newSelected = [...roleSelectedFields, field]
+                                          setSelectedFields(prev => ({
+                                            ...prev,
+                                            [role.id]: newSelected
+                                          }))
+                                          const newPermissions = { ...permission?.fieldPermissions || {} }
+                                          newPermissions[field.id] = { visible: true, editable: true }
+                                          updatePermissionField(role.id, newPermissions)
+                                        } else {
+                                          const newSelected = roleSelectedFields.filter(f => f.id !== field.id)
+                                          setSelectedFields(prev => ({
+                                            ...prev,
+                                            [role.id]: newSelected
+                                          }))
+                                          const newPermissions = { ...permission?.fieldPermissions || {} }
+                                          delete newPermissions[field.id]
+                                          updatePermissionField(role.id, newPermissions)
+                                        }
+                                      }}
+                                      className="accent-primary h-3.5 w-3.5"
+                                    />
+                                    <span className="truncate">{field.label}</span>
+                                  </label>
+                                )
+                              })}
                           </div>
                         </div>
                       )}

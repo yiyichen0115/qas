@@ -94,12 +94,15 @@ export function FieldProperties({ field, onUpdateField }: FieldPropertiesProps) 
 
   return (
     <div className="flex h-full w-80 flex-col border-l border-border bg-card">
-      <div className="border-b border-border bg-primary/5 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-primary" />
-          <h3 className="text-sm font-medium text-foreground">属性配置</h3>
+      {/* 标题栏 - 参考图片样式 */}
+      <div className="border-b border-border bg-muted/30 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-1 rounded-full bg-primary" />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-medium text-foreground">属性配置</h3>
+            <p className="mt-0.5 truncate text-xs text-primary">{localField.label}</p>
+          </div>
         </div>
-        <p className="mt-1 truncate text-xs font-medium text-primary">{localField.label}</p>
       </div>
 
       <Tabs defaultValue="basic" className="flex flex-1 flex-col overflow-hidden">
@@ -110,329 +113,416 @@ export function FieldProperties({ field, onUpdateField }: FieldPropertiesProps) 
 
         <TabsContent value="basic" className="flex-1 overflow-y-auto p-4 mt-0">
           <FieldGroup className="space-y-4">
-            <Field>
-              <FieldLabel>字段标签 *</FieldLabel>
-              <Input
-                value={localField.label}
-                onChange={(e) => updateField({ label: e.target.value })}
-                placeholder="显示给用户的标签"
-              />
-            </Field>
+            {/* 基本信息分组 */}
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                <span className="text-xs font-medium">基本信息</span>
+              </div>
+              <div className="p-3 space-y-3">
+                <Field>
+                  <FieldLabel className="text-xs">字段标签 *</FieldLabel>
+                  <Input
+                    value={localField.label}
+                    onChange={(e) => updateField({ label: e.target.value })}
+                    placeholder="显示给用户的标签"
+                    className="h-8 text-sm"
+                  />
+                </Field>
 
-            <Field>
-              <FieldLabel>字段名称 *</FieldLabel>
-              <Input
-                value={localField.name}
-                onChange={(e) => updateField({ name: e.target.value })}
-                placeholder="用于数据提交的字段名"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                建议使用英文，如: username, email
-              </p>
-            </Field>
+                <Field>
+                  <FieldLabel className="text-xs">字段名称 *</FieldLabel>
+                  <Input
+                    value={localField.name}
+                    onChange={(e) => updateField({ name: e.target.value })}
+                    placeholder="用于数据提交的字段名"
+                    className="h-8 text-sm font-mono"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    建议使用英文，如: username, email
+                  </p>
+                </Field>
 
-            {(isTextField || localField.type === 'select' || isNumberField) && (
-              <Field>
-                <FieldLabel>占位符</FieldLabel>
-                <Input
-                  value={localField.placeholder || ''}
-                  onChange={(e) => updateField({ placeholder: e.target.value })}
-                  placeholder="输入框内的提示文字"
-                />
-              </Field>
-            )}
+                {(isTextField || localField.type === 'select' || isNumberField) && (
+                  <Field>
+                    <FieldLabel className="text-xs">占位符</FieldLabel>
+                    <Input
+                      value={localField.placeholder || ''}
+                      onChange={(e) => updateField({ placeholder: e.target.value })}
+                      placeholder="输入框内的提示文字"
+                      className="h-8 text-sm"
+                    />
+                  </Field>
+                )}
 
-            <Field>
-              <FieldLabel>说明文字</FieldLabel>
-              <Textarea
-                value={localField.description || ''}
-                onChange={(e) => updateField({ description: e.target.value })}
-                placeholder="帮助用户理解此字段的说明"
-                className="min-h-[60px]"
-              />
-            </Field>
-
-            <div className="space-y-3 rounded-lg border border-border p-3">
-              <Field className="flex items-center justify-between">
-                <FieldLabel className="mb-0">必填</FieldLabel>
-                <Switch
-                  checked={localField.required}
-                  onCheckedChange={(checked) => updateField({ required: checked })}
-                />
-              </Field>
-
-              <Field className="flex items-center justify-between">
-                <FieldLabel className="mb-0">禁用</FieldLabel>
-                <Switch
-                  checked={localField.disabled || false}
-                  onCheckedChange={(checked) => updateField({ disabled: checked })}
-                />
-              </Field>
-
-              <Field className="flex items-center justify-between">
-                <FieldLabel className="mb-0">隐藏</FieldLabel>
-                <Switch
-                  checked={localField.hidden || false}
-                  onCheckedChange={(checked) => updateField({ hidden: checked })}
-                />
-              </Field>
+                <Field>
+                  <FieldLabel className="text-xs">说明文字</FieldLabel>
+                  <Textarea
+                    value={localField.description || ''}
+                    onChange={(e) => updateField({ description: e.target.value })}
+                    placeholder="帮助用户理解此字段的说明"
+                    className="min-h-[50px] text-sm"
+                  />
+                </Field>
+              </div>
             </div>
 
+            {/* 状态设置分组 - 使用两列布局 */}
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                <span className="text-xs font-medium">状态设置</span>
+              </div>
+              <div className="p-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-2 hover:bg-muted/30 transition-colors">
+                    <Switch
+                      checked={localField.required}
+                      onCheckedChange={(checked) => updateField({ required: checked })}
+                      className="scale-90"
+                    />
+                    <span className="text-xs text-muted-foreground">必填</span>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-2 hover:bg-muted/30 transition-colors">
+                    <Switch
+                      checked={localField.disabled || false}
+                      onCheckedChange={(checked) => updateField({ disabled: checked })}
+                      className="scale-90"
+                    />
+                    <span className="text-xs text-muted-foreground">禁用</span>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-2 hover:bg-muted/30 transition-colors">
+                    <Switch
+                      checked={localField.hidden || false}
+                      onCheckedChange={(checked) => updateField({ hidden: checked })}
+                      className="scale-90"
+                    />
+                    <span className="text-xs text-muted-foreground">隐藏</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 选项列表分组 - 参考图片复型表单样式 */}
             {hasOptions && (
-              <Field>
-                <div className="flex items-center justify-between">
-                  <FieldLabel>选项列表</FieldLabel>
-                  <Button variant="outline" size="sm" onClick={addOption}>
-                    <Plus className="mr-1 h-4 w-4" />
-                    添加选项
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center justify-between bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">选项列表</span>
+                  <Button variant="ghost" size="sm" onClick={addOption} className="h-6 px-2 text-xs">
+                    <Plus className="mr-1 h-3 w-3" />
+                    添加
                   </Button>
                 </div>
-                <div className="mt-3 space-y-2">
+                <div className="p-3">
                   {(localField.options || []).length === 0 ? (
-                    <p className="text-center text-sm text-muted-foreground py-4">
-                      暂无选项，请点击上方按钮添加
-                    </p>
+                    <div className="text-center py-6 text-muted-foreground">
+                      <p className="text-xs">暂无选项</p>
+                      <p className="text-xs mt-1">点击上方按钮添加</p>
+                    </div>
                   ) : (
-                    (localField.options || []).map((option, index) => (
-                      <div key={index} className="flex items-center gap-2 rounded-lg border border-border p-2">
-                        <div className="flex flex-col">
+                    <div className="space-y-2">
+                      {(localField.options || []).map((option, index) => (
+                        <div key={index} className="flex items-center gap-2 rounded border border-border bg-muted/20 p-2">
                           <button
-                            className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                            className="p-1 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing"
                             onClick={() => moveOption(index, 'up')}
-                            disabled={index === 0}
                           >
-                            <GripVertical className="h-3 w-3" />
+                            <GripVertical className="h-3.5 w-3.5" />
                           </button>
+                          <div className="flex-1 grid grid-cols-2 gap-2">
+                            <Input
+                              value={option.label}
+                              onChange={(e) => updateOption(index, 'label', e.target.value)}
+                              placeholder="显示文本"
+                              className="h-7 text-xs"
+                            />
+                            <Input
+                              value={option.value}
+                              onChange={(e) => updateOption(index, 'value', e.target.value)}
+                              placeholder="提交值"
+                              className="h-7 text-xs font-mono"
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeOption(index)}
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                        <div className="flex-1 space-y-1">
-                          <Input
-                            value={option.label}
-                            onChange={(e) => updateOption(index, 'label', e.target.value)}
-                            placeholder="显示文本"
-                            className="h-8 text-sm"
-                          />
-                          <Input
-                            value={option.value}
-                            onChange={(e) => updateOption(index, 'value', e.target.value)}
-                            placeholder="提交值"
-                            className="h-8 text-sm font-mono"
-                          />
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeOption(index)}
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </div>
-              </Field>
+              </div>
             )}
           </FieldGroup>
         </TabsContent>
 
         <TabsContent value="advanced" className="flex-1 overflow-y-auto p-4 mt-0">
           <FieldGroup className="space-y-4">
-            <Field>
-              <FieldLabel>字段宽度</FieldLabel>
-              <Select
-                value={localField.width || 'full'}
-                onValueChange={(value) => updateField({ width: value as 'full' | 'half' | 'third' })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full">整行 (100%)</SelectItem>
-                  <SelectItem value="half">半行 (50%)</SelectItem>
-                  <SelectItem value="third">三分之一 (33%)</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            <Field>
-              <FieldLabel>默认值</FieldLabel>
-              <Input
-                value={String(localField.defaultValue || '')}
-                onChange={(e) => updateField({ defaultValue: e.target.value })}
-                placeholder="字段的默认值"
-              />
-            </Field>
-
-            {isTextField && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field>
-                    <FieldLabel>最小长度</FieldLabel>
-                    <Input 
-                      type="number" 
-                      placeholder="不限制"
-                      value={localField.minLength || ''}
-                      onChange={(e) => updateField({ minLength: e.target.value ? parseInt(e.target.value) : undefined })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>最大长度</FieldLabel>
-                    <Input 
-                      type="number" 
-                      placeholder="不限制"
-                      value={localField.maxLength || ''}
-                      onChange={(e) => updateField({ maxLength: e.target.value ? parseInt(e.target.value) : undefined })}
-                    />
-                  </Field>
-                </div>
+            {/* 布局设置分组 */}
+            <div className="rounded-lg border border-border bg-card overflow-hidden">
+              <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                <span className="text-xs font-medium">布局设置</span>
+              </div>
+              <div className="p-3 space-y-3">
                 <Field>
-                  <FieldLabel>正则校验</FieldLabel>
-                  <Input 
-                    placeholder="如: ^[a-zA-Z]+$"
-                    value={localField.pattern || ''}
-                    onChange={(e) => updateField({ pattern: e.target.value || undefined })}
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    用于验证输入格式的正则表达式
-                  </p>
-                </Field>
-              </>
-            )}
-
-            {isNumberField && (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field>
-                    <FieldLabel>最小值</FieldLabel>
-                    <Input 
-                      type="number" 
-                      placeholder="不限制"
-                      value={localField.min ?? ''}
-                      onChange={(e) => updateField({ min: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel>最大值</FieldLabel>
-                    <Input 
-                      type="number" 
-                      placeholder="不限制"
-                      value={localField.max ?? ''}
-                      onChange={(e) => updateField({ max: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    />
-                  </Field>
-                </div>
-                <Field>
-                  <FieldLabel>小数位数</FieldLabel>
-                  <Input 
-                    type="number" 
-                    placeholder="0"
-                    min={0}
-                    max={10}
-                    value={localField.precision ?? ''}
-                    onChange={(e) => updateField({ precision: e.target.value ? parseInt(e.target.value) : undefined })}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel>步长</FieldLabel>
-                  <Input 
-                    type="number" 
-                    placeholder="1"
-                    value={localField.step ?? ''}
-                    onChange={(e) => updateField({ step: e.target.value ? parseFloat(e.target.value) : undefined })}
-                  />
-                </Field>
-              </>
-            )}
-
-            {localField.type === 'textarea' && (
-              <Field>
-                <FieldLabel>行数</FieldLabel>
-                <Input 
-                  type="number" 
-                  placeholder="3"
-                  min={1}
-                  max={20}
-                  value={localField.rows ?? ''}
-                  onChange={(e) => updateField({ rows: e.target.value ? parseInt(e.target.value) : undefined })}
-                />
-              </Field>
-            )}
-
-            {localField.type === 'formula' && (
-              <Field>
-                <FieldLabel>计算公式</FieldLabel>
-                <Textarea
-                  value={localField.formulaConfig?.expression || ''}
-                  onChange={(e) =>
-                    updateField({
-                      formulaConfig: {
-                        expression: e.target.value,
-                        dependencies: [],
-                      },
-                    })
-                  }
-                  placeholder="如: {数量} * {单价}"
-                  className="min-h-[80px] font-mono text-sm"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  使用 {'{字段名}'} 引用其他字段，支持 +, -, *, / 运算
-                </p>
-              </Field>
-            )}
-
-            {localField.type === 'file' && (
-              <>
-                <Field>
-                  <FieldLabel>允许的文件类型</FieldLabel>
-                  <Input 
-                    placeholder=".pdf,.doc,.docx,.xls,.xlsx"
-                    value={localField.accept || ''}
-                    onChange={(e) => updateField({ accept: e.target.value || undefined })}
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    多个类型用逗号分隔
-                  </p>
-                </Field>
-                <Field>
-                  <FieldLabel>最大文件大小 (MB)</FieldLabel>
-                  <Input 
-                    type="number" 
-                    placeholder="10"
-                    min={1}
-                    value={localField.maxSize ?? ''}
-                    onChange={(e) => updateField({ maxSize: e.target.value ? parseInt(e.target.value) : undefined })}
-                  />
-                </Field>
-                <Field className="flex items-center justify-between">
-                  <FieldLabel className="mb-0">允许多文件上传</FieldLabel>
-                  <Switch
-                    checked={localField.multiple || false}
-                    onCheckedChange={(checked) => updateField({ multiple: checked })}
-                  />
-                </Field>
-              </>
-            )}
-
-            {localField.type === 'date' && (
-              <>
-                <Field>
-                  <FieldLabel>日期格式</FieldLabel>
+                  <FieldLabel className="text-xs">字段宽度</FieldLabel>
                   <Select
-                    value={localField.dateFormat || 'YYYY-MM-DD'}
-                    onValueChange={(value) => updateField({ dateFormat: value })}
+                    value={localField.width || 'full'}
+                    onValueChange={(value) => updateField({ width: value as 'full' | 'half' | 'third' })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                      <SelectItem value="YYYY/MM/DD">YYYY/MM/DD</SelectItem>
-                      <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                      <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                      <SelectItem value="full">整行 (100%)</SelectItem>
+                      <SelectItem value="half">半行 (50%)</SelectItem>
+                      <SelectItem value="third">三分之一 (33%)</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
-              </>
+
+                <Field>
+                  <FieldLabel className="text-xs">默认值</FieldLabel>
+                  <Input
+                    value={String(localField.defaultValue || '')}
+                    onChange={(e) => updateField({ defaultValue: e.target.value })}
+                    placeholder="字段的默认值"
+                    className="h-8 text-sm"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* 文本字段验证 */}
+            {isTextField && (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">文本验证</span>
+                </div>
+                <div className="p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field>
+                      <FieldLabel className="text-xs">最小长度</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="不限"
+                        value={localField.minLength || ''}
+                        onChange={(e) => updateField({ minLength: e.target.value ? parseInt(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel className="text-xs">最大长度</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="不限"
+                        value={localField.maxLength || ''}
+                        onChange={(e) => updateField({ maxLength: e.target.value ? parseInt(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                  </div>
+                  <Field>
+                    <FieldLabel className="text-xs">正则校验</FieldLabel>
+                    <Input 
+                      placeholder="如: ^[a-zA-Z]+$"
+                      value={localField.pattern || ''}
+                      onChange={(e) => updateField({ pattern: e.target.value || undefined })}
+                      className="h-8 text-sm font-mono"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      用于验证输入格式的正则表达式
+                    </p>
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* 数字字段验证 */}
+            {isNumberField && (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">数字设置</span>
+                </div>
+                <div className="p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field>
+                      <FieldLabel className="text-xs">最小值</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="不限"
+                        value={localField.min ?? ''}
+                        onChange={(e) => updateField({ min: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel className="text-xs">最大值</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="不限"
+                        value={localField.max ?? ''}
+                        onChange={(e) => updateField({ max: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field>
+                      <FieldLabel className="text-xs">小数位数</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="0"
+                        min={0}
+                        max={10}
+                        value={localField.precision ?? ''}
+                        onChange={(e) => updateField({ precision: e.target.value ? parseInt(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel className="text-xs">步长</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="1"
+                        value={localField.step ?? ''}
+                        onChange={(e) => updateField({ step: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 多行文本设置 */}
+            {localField.type === 'textarea' && (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">多行文本设置</span>
+                </div>
+                <div className="p-3">
+                  <Field>
+                    <FieldLabel className="text-xs">显示行数</FieldLabel>
+                    <Input 
+                      type="number" 
+                      placeholder="3"
+                      min={1}
+                      max={20}
+                      value={localField.rows ?? ''}
+                      onChange={(e) => updateField({ rows: e.target.value ? parseInt(e.target.value) : undefined })}
+                      className="h-8 text-sm"
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* 公式设置 */}
+            {localField.type === 'formula' && (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">公式配置</span>
+                </div>
+                <div className="p-3">
+                  <Field>
+                    <FieldLabel className="text-xs">计算公式</FieldLabel>
+                    <Textarea
+                      value={localField.formulaConfig?.expression || ''}
+                      onChange={(e) =>
+                        updateField({
+                          formulaConfig: {
+                            expression: e.target.value,
+                            dependencies: [],
+                          },
+                        })
+                      }
+                      placeholder="如: {数量} * {单价}"
+                      className="min-h-[60px] font-mono text-sm"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      使用 {'{字段名}'} 引用其他字段，支持 +, -, *, / 运算
+                    </p>
+                  </Field>
+                </div>
+              </div>
+            )}
+
+            {/* 文件上传设置 */}
+            {localField.type === 'file' && (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">文件上传设置</span>
+                </div>
+                <div className="p-3 space-y-3">
+                  <Field>
+                    <FieldLabel className="text-xs">允许的文件类型</FieldLabel>
+                    <Input 
+                      placeholder=".pdf,.doc,.docx,.xls,.xlsx"
+                      value={localField.accept || ''}
+                      onChange={(e) => updateField({ accept: e.target.value || undefined })}
+                      className="h-8 text-sm"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      多个类型用逗号分隔
+                    </p>
+                  </Field>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field>
+                      <FieldLabel className="text-xs">最大大小 (MB)</FieldLabel>
+                      <Input 
+                        type="number" 
+                        placeholder="10"
+                        min={1}
+                        value={localField.maxSize ?? ''}
+                        onChange={(e) => updateField({ maxSize: e.target.value ? parseInt(e.target.value) : undefined })}
+                        className="h-8 text-sm"
+                      />
+                    </Field>
+                    <div className="flex items-center justify-between py-1">
+                      <span className="text-xs text-muted-foreground">多文件</span>
+                      <Switch
+                        checked={localField.multiple || false}
+                        onCheckedChange={(checked) => updateField({ multiple: checked })}
+                        className="scale-90"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 日期设置 */}
+            {localField.type === 'date' && (
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="flex items-center gap-2 bg-muted/30 px-3 py-2 border-b border-border">
+                  <span className="text-xs font-medium">日期设置</span>
+                </div>
+                <div className="p-3">
+                  <Field>
+                    <FieldLabel className="text-xs">日期格式</FieldLabel>
+                    <Select
+                      value={localField.dateFormat || 'YYYY-MM-DD'}
+                      onValueChange={(value) => updateField({ dateFormat: value })}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                        <SelectItem value="YYYY/MM/DD">YYYY/MM/DD</SelectItem>
+                        <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                        <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              </div>
             )}
           </FieldGroup>
         </TabsContent>

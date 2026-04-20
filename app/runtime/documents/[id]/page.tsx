@@ -437,52 +437,47 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 )}
               </TabsList>
 
-              <TabsContent value="detail" className="mt-6">
-                {/* 基本信息 */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">基本信息</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">单号:</span>
-                        <span className="font-mono text-sm">{document.documentNumber}</span>
+              <TabsContent value="detail" className="mt-6 space-y-6">
+                {/* 基本信息 - 参考图片的分组样式 */}
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                    <div className="h-4 w-1 rounded-full bg-primary" />
+                    <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm text-muted-foreground shrink-0">单号</span>
+                        <span className="font-mono text-sm font-medium">{document.documentNumber}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">创建人:</span>
-                        <span className="text-sm">{document.createdByName}</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm text-muted-foreground shrink-0">创建人</span>
+                        <span className="text-sm font-medium">{document.createdByName}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">创建时间:</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm text-muted-foreground shrink-0">创建时间</span>
                         <span className="text-sm">{new Date(document.createdAt).toLocaleString()}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">更新时间:</span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm text-muted-foreground shrink-0">更新时间</span>
                         <span className="text-sm">{new Date(document.updatedAt).toLocaleString()}</span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
 
-                {/* 表单数据 */}
-                <Card className="mt-4">
-                  <CardHeader>
-                    <CardTitle className="text-base">表单内容</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* 表单数据 - 参考图片的多列布局 */}
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                    <div className="h-4 w-1 rounded-full bg-primary" />
+                    <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+                  </div>
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                       {form.fields
                         .filter(field => {
-                          // 检查字段是否应该显示
                           if (field.hidden) return false
                           if (field.type === 'divider' || field.type === 'description') return false
-
-                          // 检查用户对该字段的查看权限
                           const fieldPerm = getFieldPermission(field.id)
                           return fieldPerm.visible
                         })
@@ -493,7 +488,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
                           if (value !== undefined && value !== null && value !== '') {
                             if (Array.isArray(value)) {
-                              // 多选或复选框
                               const labels = value.map(v => {
                                 const opt = field.options?.find(o => o.value === v)
                                 return opt?.label || v
@@ -509,34 +503,44 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                             }
                           }
 
-                          // 根据字段宽度设置样式
-                          const widthClass = field.width === 'full'
-                            ? 'col-span-1 md:col-span-2 lg:col-span-3'
-                            : field.width === 'half'
-                              ? 'col-span-1 md:col-span-1 lg:col-span-1'
-                              : field.width === 'third'
-                                ? 'col-span-1'
-                                : 'col-span-1' // 默认单列
+                          // 根据字段宽度和类型设置样式
+                          const getWidthClass = () => {
+                            if (field.type === 'textarea') return 'sm:col-span-2 lg:col-span-3'
+                            switch (field.width) {
+                              case 'full': return 'sm:col-span-2 lg:col-span-3'
+                              case 'half': return 'lg:col-span-1'
+                              case 'third': return ''
+                              default: return ''
+                            }
+                          }
 
-                          // textarea 类型默认整行
-                          const isFullWidth = field.type === 'textarea'
-                          const finalWidthClass = isFullWidth ? 'col-span-1 md:col-span-2 lg:col-span-3' : widthClass
+                          // textarea 类型使用特殊展示
+                          if (field.type === 'textarea') {
+                            return (
+                              <div key={field.id} className={`${getWidthClass()}`}>
+                                <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
+                                <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
+                                  {displayValue}
+                                </div>
+                              </div>
+                            )
+                          }
 
                           return (
-                            <div key={field.id} className={`rounded-lg bg-muted/30 p-3 ${finalWidthClass}`}>
-                              <div className="text-xs text-muted-foreground mb-1">{field.label}</div>
-                              <div className="text-sm font-medium">
+                            <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
+                              <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
+                              <span className="text-sm font-medium truncate">
                                 {displayValue}
-                                {!fieldPerm.editable && (
-                                  <span className="ml-2 text-xs text-muted-foreground">(只读)</span>
+                                {!fieldPerm.editable && canEdit && (
+                                  <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
                                 )}
-                              </div>
+                              </span>
                             </div>
                           )
                         })}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </TabsContent>
 
               <TabsContent value="approval" className="mt-6">
