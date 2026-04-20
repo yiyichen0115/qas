@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import { MainLayout } from '@/components/layout/main-layout'
 import {
   documentStorage,
@@ -418,352 +418,322 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* 内容区 */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-5xl">
-            <Tabs defaultValue="detail">
-              <TabsList>
-                <TabsTrigger value="detail">单据详情</TabsTrigger>
-                <TabsTrigger value="approval">审批记录</TabsTrigger>
-                {formEnableReply && canView && (
-                  <TabsTrigger value="reply" className="flex items-center gap-1">
-                    回复
-                    {replies.length > 0 && (
-                      <span className="ml-1 rounded-full bg-primary/10 px-1.5 text-xs">
-                        {replies.length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                )}
-              </TabsList>
-
-              <TabsContent value="detail" className="mt-6 space-y-6">
-                {/* 基本信息 - 参考图片的分组样式 */}
-                <div className="rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-                    <div className="h-4 w-1 rounded-full bg-primary" />
-                    <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+        {/* 内容区 - 左右两栏布局 */}
+        <div className="flex-1 overflow-auto">
+          <div className="flex h-full">
+            {/* 左侧：单据详情 */}
+            <div className="flex-1 overflow-auto p-6">
+              {/* 基本信息 */}
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-4 w-1 rounded-full bg-primary" />
+                  <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-muted-foreground shrink-0">单号</span>
+                    <span className="font-mono text-sm font-medium">{document.documentNumber}</span>
                   </div>
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm text-muted-foreground shrink-0">单号</span>
-                        <span className="font-mono text-sm font-medium">{document.documentNumber}</span>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm text-muted-foreground shrink-0">创建人</span>
-                        <span className="text-sm font-medium">{document.createdByName}</span>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm text-muted-foreground shrink-0">创建时间</span>
-                        <span className="text-sm">{new Date(document.createdAt).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm text-muted-foreground shrink-0">更新时间</span>
-                        <span className="text-sm">{new Date(document.updatedAt).toLocaleString()}</span>
-                      </div>
-                    </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-muted-foreground shrink-0">创建人</span>
+                    <span className="text-sm font-medium">{document.createdByName}</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-muted-foreground shrink-0">创建时间</span>
+                    <span className="text-sm">{new Date(document.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-sm text-muted-foreground shrink-0">更新时间</span>
+                    <span className="text-sm">{new Date(document.updatedAt).toLocaleString()}</span>
                   </div>
                 </div>
+              </div>
 
-                {/* 表单数据 - 参考图片的多列布局，支持分割线 */}
-                <div className="rounded-lg border border-border bg-card">
-                  <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-                    <div className="h-4 w-1 rounded-full bg-primary" />
-                    <h3 className="text-sm font-medium text-foreground">表单内容</h3>
-                  </div>
-                  <div className="p-4">
-                    {(() => {
-                      // 将字段按分割线分组
-                      const groups: { divider?: typeof form.fields[0]; fields: typeof form.fields }[] = []
-                      let currentGroup: typeof form.fields = []
-                      
-                      form.fields.forEach(field => {
-                        if (field.hidden) return
-                        
-                        if (field.type === 'divider') {
-                          // 保存之前的分组
-                          if (currentGroup.length > 0) {
-                            groups.push({ fields: currentGroup })
-                          }
-                          // 开始新分组，带分割线标题
-                          groups.push({ divider: field, fields: [] })
-                          currentGroup = []
-                        } else if (field.type === 'description') {
-                          // 跳过描述字段
-                          return
-                        } else {
-                          const fieldPerm = getFieldPermission(field.id)
-                          if (fieldPerm.visible) {
-                            // 查找最后一个带divider的分组
-                            const lastDividerGroup = groups.findLast(g => g.divider)
-                            if (lastDividerGroup && lastDividerGroup.fields.length === 0 && groups[groups.length - 1] === lastDividerGroup) {
-                              lastDividerGroup.fields.push(field)
-                            } else {
-                              currentGroup.push(field)
-                            }
-                          }
-                        }
-                      })
-                      
-                      // 添加最后一组
+              <Separator className="my-6" />
+
+              {/* 表单内容 */}
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-4 w-1 rounded-full bg-primary" />
+                  <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+                </div>
+                {(() => {
+                  // 将字段按分割线分组
+                  const groups: { divider?: typeof form.fields[0]; fields: typeof form.fields }[] = []
+                  let currentGroup: typeof form.fields = []
+                  
+                  form.fields.forEach(field => {
+                    if (field.hidden) return
+                    
+                    if (field.type === 'divider') {
                       if (currentGroup.length > 0) {
                         groups.push({ fields: currentGroup })
                       }
+                      groups.push({ divider: field, fields: [] })
+                      currentGroup = []
+                    } else if (field.type === 'description') {
+                      return
+                    } else {
+                      const fieldPerm = getFieldPermission(field.id)
+                      if (fieldPerm.visible) {
+                        const lastDividerGroup = groups.findLast(g => g.divider)
+                        if (lastDividerGroup && lastDividerGroup.fields.length === 0 && groups[groups.length - 1] === lastDividerGroup) {
+                          lastDividerGroup.fields.push(field)
+                        } else {
+                          currentGroup.push(field)
+                        }
+                      }
+                    }
+                  })
+                  
+                  if (currentGroup.length > 0) {
+                    groups.push({ fields: currentGroup })
+                  }
+                  
+                  return groups.map((group, groupIndex) => (
+                    <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
+                      {group.divider && (
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="h-px flex-1 bg-border" />
+                          <span className="text-sm font-medium text-muted-foreground px-2">
+                            {group.divider.label || '分割线'}
+                          </span>
+                          <div className="h-px flex-1 bg-border" />
+                        </div>
+                      )}
                       
-                      return groups.map((group, groupIndex) => (
-                        <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
-                          {/* 分割线标题 */}
-                          {group.divider && (
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="h-px flex-1 bg-border" />
-                              <span className="text-sm font-medium text-muted-foreground px-2">
-                                {group.divider.label || '分割线'}
-                              </span>
-                              <div className="h-px flex-1 bg-border" />
-                            </div>
-                          )}
-                          
-                          {/* 字段网格 */}
-                          {group.fields.length > 0 && (
-                            <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-                              {group.fields.map((field) => {
-                                const value = document.formData[field.name]
-                                const fieldPerm = getFieldPermission(field.id)
-                                let displayValue = '-'
+                      {group.fields.length > 0 && (
+                        <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {group.fields.map((field) => {
+                            const value = document.formData[field.name]
+                            const fieldPerm = getFieldPermission(field.id)
+                            let displayValue = '-'
 
-                                if (value !== undefined && value !== null && value !== '') {
-                                  if (Array.isArray(value)) {
-                                    const labels = value.map(v => {
-                                      const opt = field.options?.find(o => o.value === v)
-                                      return opt?.label || v
-                                    })
-                                    displayValue = labels.join(', ')
-                                  } else if (typeof value === 'boolean') {
-                                    displayValue = value ? '是' : '否'
-                                  } else if (field.type === 'select' || field.type === 'radio') {
-                                    const opt = field.options?.find(o => o.value === value)
-                                    displayValue = opt?.label || String(value)
-                                  } else {
-                                    displayValue = String(value)
-                                  }
-                                }
+                            if (value !== undefined && value !== null && value !== '') {
+                              if (Array.isArray(value)) {
+                                const labels = value.map(v => {
+                                  const opt = field.options?.find(o => o.value === v)
+                                  return opt?.label || v
+                                })
+                                displayValue = labels.join(', ')
+                              } else if (typeof value === 'boolean') {
+                                displayValue = value ? '是' : '否'
+                              } else if (field.type === 'select' || field.type === 'radio') {
+                                const opt = field.options?.find(o => o.value === value)
+                                displayValue = opt?.label || String(value)
+                              } else {
+                                displayValue = String(value)
+                              }
+                            }
 
-                                // 根据字段宽度和类型设置样式
-                                const getWidthClass = () => {
-                                  if (field.type === 'textarea') return 'sm:col-span-2 lg:col-span-3'
-                                  switch (field.width) {
-                                    case 'full': return 'sm:col-span-2 lg:col-span-3'
-                                    case 'half': return 'lg:col-span-1'
-                                    case 'third': return ''
-                                    default: return ''
-                                  }
-                                }
+                            const getWidthClass = () => {
+                              if (field.type === 'textarea') return 'sm:col-span-2 lg:col-span-3'
+                              switch (field.width) {
+                                case 'full': return 'sm:col-span-2 lg:col-span-3'
+                                case 'half': return 'lg:col-span-1'
+                                case 'third': return ''
+                                default: return ''
+                              }
+                            }
 
-                                // textarea 类型使用特殊展示
-                                if (field.type === 'textarea') {
-                                  return (
-                                    <div key={field.id} className={`${getWidthClass()}`}>
-                                      <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
-                                      <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
-                                        {displayValue}
-                                      </div>
-                                    </div>
-                                  )
-                                }
-
-                                return (
-                                  <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
-                                    <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
-                                    <span className="text-sm font-medium truncate">
-                                      {displayValue}
-                                      {!fieldPerm.editable && canEdit && (
-                                        <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
-                                      )}
-                                    </span>
+                            if (field.type === 'textarea') {
+                              return (
+                                <div key={field.id} className={`${getWidthClass()}`}>
+                                  <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
+                                  <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
+                                    {displayValue}
                                   </div>
-                                )
-                              })}
-                            </div>
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
+                                <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
+                                <span className="text-sm font-medium truncate">
+                                  {displayValue}
+                                  {!fieldPerm.editable && canEdit && (
+                                    <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
+                                  )}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                })()}
+              </div>
+            </div>
+
+            {/* 右侧：审批流程和评论 */}
+            <div className="w-80 shrink-0 border-l border-border bg-muted/20 flex flex-col overflow-hidden">
+              {/* 审批流程 */}
+              <div className="p-4 border-b border-border">
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">审批流程</h3>
+                </div>
+                {approvals.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    暂无审批记录
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {approvals.map((approval, index) => (
+                      <div key={approval.id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                            approval.action === 'approve' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {approval.action === 'approve' ? (
+                              <CheckCircle className="h-3 w-3" />
+                            ) : (
+                              <XCircle className="h-3 w-3" />
+                            )}
+                          </div>
+                          {index < approvals.length - 1 && (
+                            <div className="w-px flex-1 bg-border mt-1" />
                           )}
                         </div>
-                      ))
-                    })()}
+                        <div className="flex-1 min-w-0 pb-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium truncate">{approval.approverName}</span>
+                            <span className={`text-xs ${approval.action === 'approve' ? 'text-green-600' : 'text-destructive'}`}>
+                              {approval.action === 'approve' ? '通过' : '驳回'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {new Date(approval.createdAt).toLocaleString()}
+                          </p>
+                          {approval.comment && (
+                            <p className="mt-1.5 text-xs bg-background rounded p-2 line-clamp-2">
+                              {approval.comment}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              </TabsContent>
+                )}
+              </div>
 
-              <TabsContent value="approval" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">审批记录</CardTitle>
-                    <CardDescription>单据的审批历史</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {approvals.length === 0 ? (
-                      <div className="py-8 text-center text-muted-foreground">
-                        暂无审批记录
+              {/* 评论区 */}
+              {formEnableReply && (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="text-sm font-medium">评论</h3>
+                    {replies.length > 0 && (
+                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                        {replies.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 评论列表 */}
+                  <div className="flex-1 overflow-auto p-4">
+                    {topLevelReplies.length === 0 ? (
+                      <div className="py-6 text-center text-sm text-muted-foreground">
+                        暂无评论
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {approvals.map((approval, index) => (
-                          <div key={approval.id} className="flex gap-4">
-                            <div className="flex flex-col items-center">
-                              <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                                approval.action === 'approve' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                              }`}>
-                                {approval.action === 'approve' ? (
-                                  <CheckCircle className="h-4 w-4" />
-                                ) : (
-                                  <XCircle className="h-4 w-4" />
-                                )}
+                        {topLevelReplies.map((reply) => (
+                          <div key={reply.id} className="space-y-2">
+                            <div className="flex gap-2">
+                              <Avatar className="h-6 w-6 shrink-0">
+                                <AvatarFallback className="text-xs">{reply.userName[0]}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium">{reply.userName}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(reply.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-sm mt-0.5">{reply.content}</p>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-5 px-1 text-xs text-muted-foreground hover:text-foreground"
+                                  onClick={() => setReplyingTo(reply.id)}
+                                >
+                                  回复
+                                </Button>
                               </div>
-                              {index < approvals.length - 1 && (
-                                <div className="w-px flex-1 bg-border" />
-                              )}
                             </div>
-                            <div className="flex-1 pb-4">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{approval.approverName}</span>
-                                <span className={approval.action === 'approve' ? 'text-green-600' : 'text-destructive'}>
-                                  {approval.action === 'approve' ? '通过' : '驳回'}
-                                </span>
+                            
+                            {/* 子回复 */}
+                            {getRepliesForParent(reply.id).map((childReply) => (
+                              <div key={childReply.id} className="ml-8 flex gap-2">
+                                <Avatar className="h-5 w-5 shrink-0">
+                                  <AvatarFallback className="text-xs">{childReply.userName[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-medium">{childReply.userName}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(childReply.createdAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs mt-0.5">{childReply.content}</p>
+                                </div>
                               </div>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                {new Date(approval.createdAt).toLocaleString()}
-                              </p>
-                              {approval.comment && (
-                                <p className="mt-2 text-sm bg-muted rounded-lg p-3">
-                                  {approval.comment}
-                                </p>
-                              )}
-                            </div>
+                            ))}
                           </div>
                         ))}
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  </div>
 
-              {formEnableReply && (
-                <TabsContent value="reply" className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" />
-                        回复讨论
-                      </CardTitle>
-                      <CardDescription>在此处进行单据相关的讨论</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* 回复输入框 */}
-                      {currentUser && (
-                        <div className="mb-6">
-                          {replyingTo && (
-                            <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-                              <CornerDownRight className="h-4 w-4" />
-                              回复: {replies.find(r => r.id === replyingTo)?.userName}
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-6 px-2"
-                                onClick={() => setReplyingTo(null)}
-                              >
-                                取消
-                              </Button>
-                            </div>
+                  {/* 评论输入框 */}
+                  {currentUser && (
+                    <div className="p-4 border-t border-border bg-card">
+                      {replyingTo && (
+                        <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <CornerDownRight className="h-3 w-3" />
+                          <span>回复 {replies.find(r => r.id === replyingTo)?.userName}</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-4 px-1 text-xs"
+                            onClick={() => setReplyingTo(null)}
+                          >
+                            取消
+                          </Button>
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Textarea
+                          placeholder="输入评论..."
+                          value={newReply}
+                          onChange={(e) => setNewReply(e.target.value)}
+                          rows={2}
+                          className="text-sm resize-none"
+                        />
+                      </div>
+                      <div className="flex justify-end mt-2">
+                        <Button 
+                          size="sm" 
+                          onClick={handleSubmitReply}
+                          disabled={!newReply.trim() || isSubmitting}
+                          className="h-7 text-xs"
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Send className="mr-1 h-3 w-3" />
                           )}
-                          <div className="flex gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback>{currentUser.name[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 space-y-2">
-                              <Textarea
-                                placeholder="输入回复内容..."
-                                value={newReply}
-                                onChange={(e) => setNewReply(e.target.value)}
-                                rows={3}
-                              />
-                              <div className="flex justify-end">
-                                <Button 
-                                  size="sm" 
-                                  onClick={handleSubmitReply}
-                                  disabled={!newReply.trim() || isSubmitting}
-                                >
-                                  {isSubmitting ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Send className="mr-2 h-4 w-4" />
-                                  )}
-                                  发送
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <Separator className="my-4" />
-
-                      {/* 回复列表 */}
-                      {topLevelReplies.length === 0 ? (
-                        <div className="py-8 text-center text-muted-foreground">
-                          暂无回复，快来发表第一条回复吧
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {topLevelReplies.map((reply) => (
-                            <div key={reply.id} className="space-y-3">
-                              <div className="flex gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback>{reply.userName[0]}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-sm">{reply.userName}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {new Date(reply.createdAt).toLocaleString()}
-                                    </span>
-                                  </div>
-                                  <p className="mt-1 text-sm">{reply.content}</p>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="mt-1 h-7 px-2 text-xs"
-                                    onClick={() => setReplyingTo(reply.id)}
-                                  >
-                                    回复
-                                  </Button>
-                                </div>
-                              </div>
-                              
-                              {/* 子回复 */}
-                              {getRepliesForParent(reply.id).map((childReply) => (
-                                <div key={childReply.id} className="ml-11 flex gap-3">
-                                  <Avatar className="h-7 w-7">
-                                    <AvatarFallback className="text-xs">{childReply.userName[0]}</AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-medium text-sm">{childReply.userName}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {new Date(childReply.createdAt).toLocaleString()}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 text-sm">{childReply.content}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
+                          发送
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
-            </Tabs>
+            </div>
           </div>
         </div>
       </div>
