@@ -200,7 +200,15 @@ export function FieldPreview({ field }: FieldPreviewProps) {
         )
 
       case 'divider':
-        return <hr className="border-border" />
+        return (
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-sm font-medium text-muted-foreground px-2">
+              {field.label || '分割线'}
+            </span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+        )
 
       case 'description':
         return (
