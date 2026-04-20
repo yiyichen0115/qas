@@ -241,12 +241,11 @@ function FieldRenderer({
     
     case 'divider':
       return (
-        <div className="flex items-center gap-3 my-4">
-          <div className="h-px flex-1 bg-border" />
-          <span className="text-sm font-medium text-muted-foreground px-2">
+        <div className="relative pt-5 my-4">
+          <span className="absolute left-0 top-0 text-sm font-medium text-muted-foreground">
             {field.label || '分割线'}
           </span>
-          <div className="h-px flex-1 bg-border" />
+          <div className="h-px w-full bg-border" />
         </div>
       )
     
@@ -685,12 +684,11 @@ function EditDocumentContent() {
                     <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
                       {/* 分割线标题 */}
                       {group.divider && (
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="h-px flex-1 bg-border" />
-                          <span className="text-sm font-medium text-muted-foreground px-2">
+                        <div className="relative pt-5 mb-4">
+                          <span className="absolute left-0 top-0 text-sm font-medium text-muted-foreground">
                             {group.divider.label || '分割线'}
                           </span>
-                          <div className="h-px flex-1 bg-border" />
+                          <div className="h-px w-full bg-border" />
                         </div>
                       )}
                       

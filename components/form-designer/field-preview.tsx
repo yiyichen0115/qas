@@ -201,12 +201,11 @@ export function FieldPreview({ field }: FieldPreviewProps) {
 
       case 'divider':
         return (
-          <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-sm font-medium text-muted-foreground px-2">
+          <div className="relative pt-5">
+            <span className="absolute left-0 top-0 text-sm font-medium text-muted-foreground">
               {field.label || '分割线'}
             </span>
-            <div className="h-px flex-1 bg-border" />
+            <div className="h-px w-full bg-border" />
           </div>
         )
 
