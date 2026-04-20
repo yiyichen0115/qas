@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -624,17 +624,22 @@ function CreateDocumentContent() {
         {/* 表单内容 */}
         <div className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-5xl">
-            <Card>
-              <CardHeader>
-                <CardTitle>{documentType.name}</CardTitle>
-                {documentType.description && (
-                  <p className="text-sm text-muted-foreground">{documentType.description}</p>
-                )}
-              </CardHeader>
-              <CardContent>
-                {documentType.fields.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
-                )}
+            {/* 标题区域 */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h2 className="text-lg font-medium">{documentType.name}</h2>
+              </div>
+              {documentType.description && (
+                <p className="text-sm text-muted-foreground ml-4">{documentType.description}</p>
+              )}
+            </div>
+            
+            {/* 表单字段 */}
+            <div>
+              {documentType.fields.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
+              )}
                 {(() => {
                   // 将字段按分割线分组
                   const visibleFields = documentType.fields.filter(field => !field.hidden)
@@ -726,20 +731,14 @@ function CreateDocumentContent() {
                     </div>
                   ))
                 })()}
-              </CardContent>
-            </Card>
+            </div>
 
             {workflow && (
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle className="text-base">审批流程</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    提交后将进入「{workflow.name}」审批流程
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  提交后将进入「{workflow.name}」审批流程
+                </p>
+              </div>
             )}
           </div>
         </div>
