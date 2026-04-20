@@ -2,16 +2,22 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Save, Send, Loader2, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Save, Send, Loader2, CheckCircle2, X, Car, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Checkbox } from '@/components/ui/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -243,7 +249,14 @@ function FieldRenderer({
       )
     
     case 'divider':
-      return <div className="border-t border-border my-2" />
+      return (
+        <div className="relative pt-5 my-4">
+          <span className="absolute left-0 top-0 text-sm font-medium text-muted-foreground">
+            {field.label || '分割线'}
+          </span>
+          <div className="h-px w-full bg-border" />
+        </div>
+      )
     
     case 'description':
       return (
@@ -277,6 +290,8 @@ function CreateDocumentContent() {
   const [documentNumber, setDocumentNumber] = useState('')
   const [vinInfo, setVinInfo] = useState<VehicleInfo | undefined>()
   const [dealerInfo, setDealerInfo] = useState<Dealer | undefined>()
+  const [showVinDialog, setShowVinDialog] = useState(false)
+  const [showDealerDialog, setShowDealerDialog] = useState(false)
 
   useEffect(() => {
     if (documentTypeId) {
@@ -310,6 +325,7 @@ function CreateDocumentContent() {
 
   // VIN联动处理
   const handleVinChange = useCallback((vin: string, vehicleInfo: VehicleInfo | undefined) => {
+    const previousVinInfo = vinInfo
     setVinInfo(vehicleInfo)
     
     if (vehicleInfo && documentType) {
@@ -333,11 +349,17 @@ function CreateDocumentContent() {
       if (Object.keys(updates).length > 0) {
         setFormData(prev => ({ ...prev, ...updates }))
       }
+      
+      // 首次识别到车辆信息时弹窗提示
+      if (!previousVinInfo) {
+        setShowVinDialog(true)
+      }
     }
-  }, [documentType])
+  }, [documentType, vinInfo])
 
   // 经销商编码联动处理
   const handleDealerCodeChange = useCallback((code: string, dealer: Dealer | undefined) => {
+    const previousDealerInfo = dealerInfo
     setDealerInfo(dealer)
     
     if (dealer && documentType) {
@@ -360,8 +382,13 @@ function CreateDocumentContent() {
       if (Object.keys(updates).length > 0) {
         setFormData(prev => ({ ...prev, ...updates }))
       }
+      
+      // 首次识别到经销商信息时弹窗提示
+      if (!previousDealerInfo) {
+        setShowDealerDialog(true)
+      }
     }
-  }, [documentType])
+  }, [documentType, dealerInfo])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -520,114 +547,213 @@ function CreateDocumentContent() {
           </div>
         </div>
 
+        {/* VIN识别弹窗 */}
+        <Dialog open={showVinDialog} onOpenChange={setShowVinDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-emerald-700">
+                <Car className="h-5 w-5" />
+                已识别车辆信息
+              </DialogTitle>
+            </DialogHeader>
+            {vinInfo && (
+              <div className="space-y-3">
+                <div className="rounded-lg bg-emerald-50 p-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">车型平台</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.platformName}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">配置</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.configName}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">车辆代码</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.vehicleCode}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">配置代码</span>
+                      <p className="font-medium text-emerald-700">{vinInfo.configCode}</p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">相关字段已自动填充</p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* 经销商识别弹窗 */}
+        <Dialog open={showDealerDialog} onOpenChange={setShowDealerDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-blue-700">
+                <Building2 className="h-5 w-5" />
+                已识别经销商
+              </DialogTitle>
+            </DialogHeader>
+            {dealerInfo && (
+              <div className="space-y-3">
+                <div className="rounded-lg bg-blue-50 p-4">
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">经销商名称</span>
+                      <p className="font-medium text-blue-700">{dealerInfo.name}</p>
+                    </div>
+                    {dealerInfo.address && (
+                      <div>
+                        <span className="text-muted-foreground">地址</span>
+                        <p className="font-medium text-blue-700">{dealerInfo.address}</p>
+                      </div>
+                    )}
+                    {dealerInfo.contactPerson && (
+                      <div>
+                        <span className="text-muted-foreground">联系人</span>
+                        <p className="font-medium text-blue-700">{dealerInfo.contactPerson}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">相关字段已自动填充</p>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* 表单内容 */}
         <div className="flex-1 overflow-auto p-6">
           <div className="mx-auto max-w-5xl">
-            {/* VIN联动提示 */}
-            {vinInfo && (
-              <Card className="mb-4 border-emerald-200 bg-emerald-50">
-                <CardContent className="py-3">
-                  <div className="flex items-center gap-2 text-emerald-700">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">已识别车辆信息</span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-emerald-600">
-                    <span>车型平台: {vinInfo.platformName}</span>
-                    <span>配置: {vinInfo.configName}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 经销商联动提示 */}
-            {dealerInfo && (
-              <Card className="mb-4 border-blue-200 bg-blue-50">
-                <CardContent className="py-3">
-                  <div className="flex items-center gap-2 text-blue-700">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">已识别经销商</span>
-                  </div>
-                  <div className="mt-2 text-sm text-blue-600">
-                    {dealerInfo.name}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{documentType.name}</CardTitle>
-                {documentType.description && (
-                  <p className="text-sm text-muted-foreground">{documentType.description}</p>
-                )}
-              </CardHeader>
-              <CardContent>
-                {documentType.fields.length === 0 && (
-                  <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
-                  {documentType.fields
-                    .filter(field => !field.hidden)
-                    .map((field) => {
-                      // 根据字段宽度设置样式
-                      const widthClass = field.width === 'full' 
-                        ? 'col-span-1 md:col-span-2 lg:col-span-3' 
-                        : field.width === 'half' 
-                          ? 'col-span-1 md:col-span-1 lg:col-span-1 md:last:odd:col-span-2 lg:last:odd:col-span-1'
-                          : field.width === 'third'
-                            ? 'col-span-1'
-                            : 'col-span-1 md:col-span-2 lg:col-span-3' // 默认整行
-                      
-                      // textarea 和 description 类型默认整行
-                      const isFullWidth = field.type === 'textarea' || field.type === 'divider' || field.type === 'description'
-                      const finalWidthClass = isFullWidth ? 'col-span-1 md:col-span-2 lg:col-span-3' : widthClass
-
-                      return (
-                        <div key={field.id} className={`space-y-2 ${finalWidthClass}`}>
-                          {field.type !== 'divider' && field.type !== 'description' && (
-                            <Label className="flex items-center gap-1">
-                              {field.label}
-                              {field.required && <span className="text-destructive">*</span>}
-                              {isVinField(field.name) && (
-                                <Badge variant="outline" className="ml-2 text-xs">自动联动</Badge>
-                              )}
-                              {isDealerCodeField(field.name) && (
-                                <Badge variant="outline" className="ml-2 text-xs">自动联动</Badge>
-                              )}
-                            </Label>
-                          )}
-                          <FieldRenderer
-                            field={field}
-                            value={formData[field.name]}
-                            onChange={(value) => handleFieldChange(field.name, value)}
-                            onVinChange={handleVinChange}
-                            onDealerCodeChange={handleDealerCodeChange}
-                            linkedInfo={getLinkedInfo(field)}
-                          />
-                          {field.description && field.type !== 'description' && (
-                            <p className="text-xs text-muted-foreground">{field.description}</p>
-                          )}
-                          {errors[field.name] && (
-                            <p className="text-sm text-destructive">{errors[field.name]}</p>
-                          )}
-                        </div>
-                      )
-                    })}
+            {/* 基本信息 */}
+            <div className="mb-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-sm text-muted-foreground shrink-0">单据类型</span>
+                  <span className="text-sm font-medium">{documentType.name}</span>
                 </div>
-              </CardContent>
-            </Card>
+                {documentType.description && (
+                  <div className="flex items-baseline gap-2 sm:col-span-2 lg:col-span-3">
+                    <span className="text-sm text-muted-foreground shrink-0">说明</span>
+                    <span className="text-sm">{documentType.description}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+            
+            {/* 表单内容 */}
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+              </div>
+              {documentType.fields.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
+              )}
+                {(() => {
+                  // 将字段按分割线分组
+                  const visibleFields = documentType.fields.filter(field => !field.hidden)
+                  const groups: { divider?: FormField; fields: FormField[] }[] = []
+                  let currentGroup: FormField[] = []
+                  
+                  visibleFields.forEach(field => {
+                    if (field.type === 'divider') {
+                      if (currentGroup.length > 0) {
+                        groups.push({ fields: currentGroup })
+                      }
+                      groups.push({ divider: field, fields: [] })
+                      currentGroup = []
+                    } else if (field.type === 'description') {
+                      // description 跳过，不参与分组
+                      return
+                    } else {
+                      const lastDividerGroup = groups.findLast(g => g.divider)
+                      if (lastDividerGroup && lastDividerGroup.fields.length === 0 && groups[groups.length - 1] === lastDividerGroup) {
+                        lastDividerGroup.fields.push(field)
+                      } else {
+                        currentGroup.push(field)
+                      }
+                    }
+                  })
+                  
+                  if (currentGroup.length > 0) {
+                    groups.push({ fields: currentGroup })
+                  }
+                  
+                  return groups.map((group, groupIndex) => (
+                    <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
+                      {/* 分割线标题 */}
+                      {group.divider && (
+                        <div className="relative pt-5 mb-4">
+                          <span className="absolute left-0 top-0 text-sm font-medium text-muted-foreground">
+                            {group.divider.label || '分割线'}
+                          </span>
+                          <div className="h-px w-full bg-border" />
+                        </div>
+                      )}
+                      
+                      {/* 字段网格 */}
+                      {group.fields.length > 0 && (
+                        <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {group.fields.map((field) => {
+                            const widthClass = field.width === 'full' 
+                              ? 'col-span-1 md:col-span-2 lg:col-span-3' 
+                              : field.width === 'half' 
+                                ? 'col-span-1 md:col-span-1 lg:col-span-1'
+                                : field.width === 'third'
+                                  ? 'col-span-1'
+                                  : 'col-span-1 md:col-span-2 lg:col-span-3'
+                            
+                            const isFullWidth = field.type === 'textarea'
+                            const finalWidthClass = isFullWidth ? 'col-span-1 md:col-span-2 lg:col-span-3' : widthClass
+
+                            return (
+                              <div key={field.id} className={`space-y-2 ${finalWidthClass}`}>
+                                <Label className="flex items-center gap-1">
+                                  {field.label}
+                                  {field.required && <span className="text-destructive">*</span>}
+                                  {isVinField(field.name) && (
+                                    <Badge variant="outline" className="ml-2 text-xs">自动联动</Badge>
+                                  )}
+                                  {isDealerCodeField(field.name) && (
+                                    <Badge variant="outline" className="ml-2 text-xs">自动联动</Badge>
+                                  )}
+                                </Label>
+                                <FieldRenderer
+                                  field={field}
+                                  value={formData[field.name]}
+                                  onChange={(value) => handleFieldChange(field.name, value)}
+                                  onVinChange={handleVinChange}
+                                  onDealerCodeChange={handleDealerCodeChange}
+                                  linkedInfo={getLinkedInfo(field)}
+                                />
+                                {field.description && (
+                                  <p className="text-xs text-muted-foreground">{field.description}</p>
+                                )}
+                                {errors[field.name] && (
+                                  <p className="text-sm text-destructive">{errors[field.name]}</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                })()}
+            </div>
 
             {workflow && (
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle className="text-base">审批流程</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    提交后将进入「{workflow.name}」审批流程
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  提交后将进入「{workflow.name}」审批流程
+                </p>
+              </div>
             )}
           </div>
         </div>

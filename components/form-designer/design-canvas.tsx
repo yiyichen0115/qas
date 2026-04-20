@@ -140,18 +140,24 @@ export function DesignCanvas({
 
   return (
     <div className="flex flex-1 flex-col bg-muted/30">
+      {/* 顶部标题栏 - 参考图片样式 */}
       <div className="border-b border-border bg-card px-6 py-3">
-        <h3 className="text-sm font-medium text-foreground">表单设计区</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {fields.length > 0 ? `已添加 ${fields.length} 个字段` : '拖拽左侧字段到此处'}
-        </p>
+        <div className="flex items-center gap-3">
+          <div className="h-4 w-1 rounded-full bg-primary" />
+          <div>
+            <h3 className="text-sm font-medium text-foreground">表单设计区</h3>
+            <p className="text-xs text-muted-foreground">
+              {fields.length > 0 ? `已添加 ${fields.length} 个字段` : '拖拽左侧字段到此处'}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
         <div
           ref={setNodeRef}
           className={cn(
-            'mx-auto min-h-[400px] max-w-5xl rounded-xl border-2 border-dashed bg-card p-6 transition-colors',
+            'mx-auto min-h-[400px] max-w-5xl rounded-xl border-2 border-dashed bg-card transition-colors',
             isOver ? 'border-primary bg-primary/5' : 'border-border'
           )}
           onClick={() => onSelectField(null)}
@@ -164,17 +170,20 @@ export function DesignCanvas({
             </div>
           ) : (
             <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {fields.map((field) => (
-                  <SortableFieldItem
-                    key={field.id}
-                    field={field}
-                    isSelected={selectedFieldId === field.id}
-                    onSelect={() => onSelectField(field.id)}
-                    onDelete={() => onDeleteField(field.id)}
-                    onDuplicate={() => onDuplicateField(field.id)}
-                  />
-                ))}
+              {/* 表单预览区 - 参考图片的分组布局 */}
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {fields.map((field) => (
+                    <SortableFieldItem
+                      key={field.id}
+                      field={field}
+                      isSelected={selectedFieldId === field.id}
+                      onSelect={() => onSelectField(field.id)}
+                      onDelete={() => onDeleteField(field.id)}
+                      onDuplicate={() => onDuplicateField(field.id)}
+                    />
+                  ))}
+                </div>
               </div>
             </SortableContext>
           )}

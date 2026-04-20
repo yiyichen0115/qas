@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import {
   BookOpen,
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ExternalLink,
   FileText,
+  GripVertical,
   History,
   Loader2,
   MessageSquare,
@@ -41,8 +42,71 @@ export function AISidebar({ open, onOpenChange }: AISidebarProps) {
   const [inputValue, setInputValue] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // 拖拽相关状态
+  const [buttonPosition, setButtonPosition] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('ai-sidebar-button-position')
+      return saved ? Number(saved) : 50
+    }
+    return 50
+  })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef(0)
+  const dragStartPosition = useRef(0)
   const storeCurrentUser = useAppStore((state) => state.currentUser)
   const currentUser: AppUser | null = storeCurrentUser ?? userStorage.getCurrentUser()
+
+  // 拖拽开始处理
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    dragStartY.current = clientY
+    dragStartPosition.current = buttonPosition
+  }, [buttonPosition])
+
+  // 拖拽移动处理
+  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDragging) return
+    
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+    const deltaY = clientY - dragStartY.current
+    const windowHeight = window.innerHeight
+    const deltaPercent = (deltaY / windowHeight) * 100
+    
+    let newPosition = dragStartPosition.current + deltaPercent
+    // 限制在 10% - 90% 范围内
+    newPosition = Math.max(10, Math.min(90, newPosition))
+    
+    setButtonPosition(newPosition)
+  }, [isDragging])
+
+  // 拖拽结束处理
+  const handleDragEnd = useCallback(() => {
+    if (isDragging) {
+      setIsDragging(false)
+      // 保存位置到 localStorage
+      localStorage.setItem('ai-sidebar-button-position', String(buttonPosition))
+    }
+  }, [isDragging, buttonPosition])
+
+  // 绑定全局拖拽事件
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleDragMove)
+      window.addEventListener('mouseup', handleDragEnd)
+      window.addEventListener('touchmove', handleDragMove)
+      window.addEventListener('touchend', handleDragEnd)
+      
+      return () => {
+        window.removeEventListener('mousemove', handleDragMove)
+        window.removeEventListener('mouseup', handleDragEnd)
+        window.removeEventListener('touchmove', handleDragMove)
+        window.removeEventListener('touchend', handleDragEnd)
+      }
+    }
+  }, [isDragging, handleDragMove, handleDragEnd])
 
   const { currentConversationId, loadConversation, messages, sendMessage, startNewConversation, status } =
     useAiAssistantChat({
@@ -132,13 +196,31 @@ export function AISidebar({ open, onOpenChange }: AISidebarProps) {
   return (
     <>
       {!open && (
-        <button
-          onClick={() => onOpenChange(true)}
-          className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 items-center gap-2 rounded-l-lg bg-primary px-3 py-4 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+        <div
+          className={cn(
+            "fixed right-0 z-40 flex items-center rounded-l-lg bg-primary text-primary-foreground shadow-lg transition-colors",
+            isDragging ? "cursor-grabbing" : ""
+          )}
+          style={{ top: `${buttonPosition}%`, transform: 'translateY(-50%)' }}
         >
-          <Bot className="h-5 w-5" />
-          <ChevronLeft className="h-4 w-4" />
-        </button>
+          {/* 拖拽手柄 */}
+          <div
+            className="flex h-full cursor-grab items-center px-1 py-3 hover:bg-primary-foreground/10 active:cursor-grabbing"
+            onMouseDown={handleDragStart}
+            onTouchStart={handleDragStart}
+            title="拖拽调整位置"
+          >
+            <GripVertical className="h-4 w-4 opacity-60" />
+          </div>
+          {/* 展开按钮 */}
+          <button
+            onClick={() => !isDragging && onOpenChange(true)}
+            className="flex items-center gap-2 px-2 py-3 hover:bg-primary-foreground/10"
+          >
+            <Bot className="h-5 w-5" />
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        </div>
       )}
 
       <aside
@@ -189,7 +271,7 @@ export function AISidebar({ open, onOpenChange }: AISidebarProps) {
                       <FileText className="mr-2 h-3 w-3 shrink-0" />
                       车辆无法充电，如何排查？
                     </Button>
-                    <Button variant="outline" size="sm" className="h-auto justify-start px-3 py-2 text-xs" onClick={() => setInputValue('故障码 P181900 是什么意思？')}>
+                    <Button variant="outline" size="sm" className="h-auto justify-start px-3 py-2 text-xs" onClick={() => setInputValue('故障码 P181900 是什么意���？')}>
                       <FileText className="mr-2 h-3 w-3 shrink-0" />
                       故障码 P181900 是什么意思？
                     </Button>
