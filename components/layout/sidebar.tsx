@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -12,16 +12,34 @@ import {
   Shield,
   ChevronDown,
   PlayCircle,
+  FolderOpen,
+  Wallet,
+  Briefcase,
+  Package,
 } from 'lucide-react'
+import { documentTypeStorage } from '@/lib/storage'
+import type { DocumentType } from '@/lib/types'
 
 interface NavItem {
   title: string
   href?: string
   icon: React.ReactNode
-  children?: { title: string; href: string }[]
+  children?: { title: string; href: string; icon?: React.ReactNode }[]
+  isDynamic?: boolean
 }
 
-const navItems: NavItem[] = [
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  FileText,
+  Users,
+  Wallet,
+  Briefcase,
+  Package,
+  Settings2,
+  FolderOpen,
+  PlayCircle,
+}
+
+const getStaticNavItems = (): NavItem[] => [
   {
     title: '仪表盘',
     href: '/',
@@ -29,8 +47,11 @@ const navItems: NavItem[] = [
   },
   {
     title: '单据中心',
-    href: '/runtime/documents',
     icon: <PlayCircle className="h-5 w-5" />,
+    isDynamic: true,
+    children: [
+      { title: '全部单据', href: '/runtime/documents' },
+    ],
   },
   {
     title: '设计中心',
@@ -59,7 +80,54 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [expandedItems, setExpandedItems] = useState<string[]>(['设计中心', '系统管理'])
+  const [expandedItems, setExpandedItems] = useState<string[]>(['设计中心', '系统管理', '单据中心'])
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
+  const [navItems, setNavItems] = useState<NavItem[]>(getStaticNavItems())
+
+  // 加载单据类型并更新导航
+  useEffect(() => {
+    const loadDocumentTypes = () => {
+      const types = documentTypeStorage.getPublished()
+      setDocumentTypes(types)
+      
+      // 更新导航项
+      const staticItems = getStaticNavItems()
+      const updatedItems = staticItems.map(item => {
+        if (item.isDynamic && item.title === '单据中心') {
+          const dynamicChildren = types.map(dt => ({
+            title: dt.name,
+            href: `/runtime/documents/type/${dt.id}`,
+            icon: dt.icon,
+          }))
+          return {
+            ...item,
+            children: [
+              { title: '全部单据', href: '/runtime/documents' },
+              ...dynamicChildren,
+            ],
+          }
+        }
+        return item
+      })
+      setNavItems(updatedItems)
+    }
+
+    loadDocumentTypes()
+    
+    // 监听 storage 变化以实时更新
+    const handleStorageChange = () => {
+      loadDocumentTypes()
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    // 也监听自定义事件，用于同页面内的更新
+    window.addEventListener('documentTypesUpdated', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('documentTypesUpdated', handleStorageChange)
+    }
+  }, [])
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
@@ -67,9 +135,24 @@ export function Sidebar() {
     )
   }
 
-  const isActive = (href: string) => pathname === href
+  const isActive = (href: string) => {
+    if (pathname === href) return true
+    // 特殊处理: /runtime/documents 不应匹配 /runtime/documents/type/xxx
+    if (href === '/runtime/documents') {
+      return pathname === '/runtime/documents'
+    }
+    return pathname.startsWith(href + '/')
+  }
+  
   const isChildActive = (children?: { href: string }[]) =>
-    children?.some((child) => pathname === child.href)
+    children?.some((child) => {
+      if (pathname === child.href) return true
+      // 特殊处理: /runtime/documents 不应匹配 /runtime/documents/type/xxx
+      if (child.href === '/runtime/documents') {
+        return pathname === '/runtime/documents'
+      }
+      return pathname.startsWith(child.href + '/')
+    })
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-border bg-sidebar">
