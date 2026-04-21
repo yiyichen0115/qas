@@ -255,7 +255,8 @@ export const documentStorage = {
   
   getById: (id: string): Document | undefined => {
     const docs = documentStorage.getAll()
-    return docs.find(d => d.id === id)
+    // 同时支持通过 id 和 documentNumber 查找
+    return docs.find(d => d.id === id || d.documentNumber === id)
   },
   
   getByStatus: (status: string): Document[] => {
@@ -289,7 +290,10 @@ export const approvalStorage = {
   getAll: (): ApprovalRecord[] => getItem(STORAGE_KEYS.APPROVALS, []),
   
   getByDocumentId: (documentId: string): ApprovalRecord[] => {
-    return approvalStorage.getAll().filter(a => a.documentId === documentId)
+    // 先尝试通过 documentId 直接查找，也支持通过 documentNumber 查找
+    const doc = documentStorage.getById(documentId)
+    const actualDocId = doc?.id || documentId
+    return approvalStorage.getAll().filter(a => a.documentId === actualDocId || a.documentId === documentId)
   },
   
   save: (record: ApprovalRecord): void => {
@@ -394,7 +398,10 @@ export const replyStorage = {
   getAll: (): DocumentReply[] => getItem(STORAGE_KEYS.REPLIES, []),
   
   getByDocumentId: (documentId: string): DocumentReply[] => {
-    return replyStorage.getAll().filter(r => r.documentId === documentId)
+    // 先尝试通过 documentId 直接查找，也支持通过 documentNumber 查找
+    const doc = documentStorage.getById(documentId)
+    const actualDocId = doc?.id || documentId
+    return replyStorage.getAll().filter(r => r.documentId === actualDocId || r.documentId === documentId)
   },
   
   save: (reply: DocumentReply): void => {
@@ -1484,7 +1491,7 @@ function getDefaultAIDocumentRules(): AIDocumentRule[] {
       matchLogic: 'or',
       action: {
         type: 'show_guide',
-        guideMessage: '关于电池/充电问题，请先确认：\n1. 充电桩是否正常工作\n2. 充电枪连接是否牢固\n3. 是否有相关故障码\n\n如果以上检查都正常但问题仍存在，建议提交技术求援单。',
+        guideMessage: '关于电池/充电问题，请先确认：\n1. 充电桩是否正常工作\n2. 充电枪连接是否牢固\n3. 是否有���关故障码\n\n如果以上检查都正常但问题仍存在，建议提交技术求援单。',
         relatedArticleIds: ['kb_002', 'kb_003'],
         documentTypeId: 'doctype_support_feedback',
       },
@@ -1494,7 +1501,7 @@ function getDefaultAIDocumentRules(): AIDocumentRule[] {
     {
       id: 'rule_fault_code',
       name: '故障码查询规则',
-      description: '当用户输入故障码格式时，自动识别并提供相关信息',
+      description: '当用户输入故障码格式时，自���识别并提供相关信息',
       enabled: true,
       priority: 3,
       matchConditions: [

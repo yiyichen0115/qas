@@ -107,7 +107,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     if (doc) {
       setDocument(doc)
 
-
       // 优先尝试从单据类型存储获取表单配置
       const loadedDocType = documentTypeStorage.getById(doc.documentTypeId)
 
