@@ -739,68 +739,69 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {/* 右侧：审批流程和评论 */}
-            <div className="w-96 shrink-0 border-l border-border flex flex-col overflow-hidden bg-muted/30">
-              {/* 审批流程区块 */}
-              <div className="bg-card border-b border-border">
+            <div className="w-96 shrink-0 border-l border-border flex flex-col overflow-hidden">
+              {/* 审批流程区块 - 蓝色主题 */}
+              <div className="bg-gradient-to-b from-blue-50 to-white border-b-2 border-blue-200">
                 {/* 审批流程标题 */}
-                <div className="flex items-center gap-3 px-4 py-3 bg-primary">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-foreground/10">
-                    <Clock className="h-4 w-4 text-primary-foreground" />
+                <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm">
+                    <Clock className="h-4 w-4 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-primary-foreground">审批流程</h3>
+                    <h3 className="text-sm font-semibold text-white">审批流程</h3>
+                    <p className="text-xs text-blue-100">Approval Process</p>
                   </div>
                   {approvals.length > 0 && (
-                    <span className="text-xs text-primary-foreground/80 bg-primary-foreground/10 px-2 py-0.5 rounded-full">
+                    <span className="text-xs text-white bg-white/20 px-2.5 py-1 rounded-full font-medium">
                       {approvals.length} 条
                     </span>
                   )}
                 </div>
                 
                 {/* 审批记录列表 */}
-                <div className="p-4 max-h-56 overflow-auto bg-card">
+                <div className="p-4 max-h-60 overflow-auto">
                   {approvals.length === 0 ? (
                     <div className="py-6 text-center">
-                      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
-                        <Clock className="h-5 w-5 text-muted-foreground" />
+                      <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Clock className="h-6 w-6 text-blue-400" />
                       </div>
-                      <p className="text-sm text-muted-foreground">暂无审批记录</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">提交后将显示审批进度</p>
+                      <p className="text-sm text-slate-600 font-medium">暂无审批记录</p>
+                      <p className="text-xs text-slate-400 mt-1">提交后将显示审批进度</p>
                     </div>
                   ) : (
                     <div className="relative">
                       {/* 时间线 */}
-                      <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-border" />
+                      <div className="absolute left-[15px] top-3 bottom-3 w-0.5 bg-gradient-to-b from-blue-400 via-blue-200 to-blue-100" />
                       <div className="space-y-4">
                         {approvals.map((approval, index) => (
                           <div key={approval.id} className="relative flex gap-3 pl-1">
-                            <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm ring-4 ring-card ${
+                            <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-md ring-4 ring-white ${
                               approval.action === 'approve' 
-                                ? 'bg-primary text-primary-foreground' 
-                                : 'bg-destructive text-destructive-foreground'
+                                ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' 
+                                : 'bg-gradient-to-br from-red-400 to-red-600'
                             }`}>
                               {approval.action === 'approve' ? (
-                                <CheckCircle className="h-4 w-4" />
+                                <CheckCircle className="h-4 w-4 text-white" />
                               ) : (
-                                <XCircle className="h-4 w-4" />
+                                <XCircle className="h-4 w-4 text-white" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0 pb-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium text-foreground">{approval.approverName}</span>
+                                <span className="text-sm font-semibold text-slate-700">{approval.approverName}</span>
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                   approval.action === 'approve'
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'bg-destructive/10 text-destructive'
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                    : 'bg-red-100 text-red-700 border border-red-200'
                                 }`}>
                                   {approval.action === 'approve' ? '已通过' : '已驳回'}
                                 </span>
                               </div>
-                              <p className="text-xs text-muted-foreground mt-1">
+                              <p className="text-xs text-slate-500 mt-1">
                                 {new Date(approval.createdAt).toLocaleString('zh-CN')}
                               </p>
                               {approval.comment && (
-                                <div className="mt-2 text-sm bg-muted rounded-lg px-3 py-2 border border-border">
+                                <div className="mt-2 text-sm bg-white rounded-lg px-3 py-2 border border-slate-200 shadow-sm text-slate-600">
                                   {approval.comment}
                                 </div>
                               )}
@@ -813,19 +814,20 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               </div>
 
-              {/* 交流历史区块 */}
+              {/* 交流历史区块 - 绿色主题 */}
               {formEnableReply && (
-                <div className="flex-1 flex flex-col overflow-hidden bg-muted">
+                <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-emerald-50/50 to-slate-50">
                   {/* 交流历史标题 */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-secondary border-b border-border">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
-                      <MessageSquare className="h-4 w-4 text-primary" />
+                  <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm">
+                      <MessageSquare className="h-4 w-4 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-sm font-semibold text-secondary-foreground">交流历史</h3>
+                      <h3 className="text-sm font-semibold text-white">交流历史</h3>
+                      <p className="text-xs text-emerald-100">Communication</p>
                     </div>
                     {replies.length > 0 && (
-                      <span className="text-xs text-primary-foreground bg-primary px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                      <span className="text-xs text-white bg-orange-500 px-2.5 py-1 rounded-full font-medium min-w-[24px] text-center shadow-sm">
                         {replies.length}
                       </span>
                     )}
@@ -834,8 +836,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   {/* 消息列表 */}
                   <div className="flex-1 overflow-auto p-4 space-y-4">
                     {replies.length === 0 ? (
-                      <div className="py-8 text-center text-sm text-muted-foreground">
-                        暂无消息
+                      <div className="py-8 text-center">
+                        <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <MessageSquare className="h-6 w-6 text-emerald-400" />
+                        </div>
+                        <p className="text-sm text-slate-600 font-medium">暂无消息</p>
+                        <p className="text-xs text-slate-400 mt-1">发送消息开始交流</p>
                       </div>
                     ) : (
                       <>
@@ -849,7 +855,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                               {/* 时间戳 */}
                               {showTime && (
                                 <div className="flex justify-center mb-3">
-                                  <span className="text-xs text-muted-foreground bg-muted rounded px-2 py-0.5">
+                                  <span className="text-xs text-slate-500 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm border border-slate-100">
                                     {new Date(reply.createdAt).toLocaleString('zh-CN', { 
                                       month: '2-digit', 
                                       day: '2-digit', 
@@ -863,8 +869,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                               {/* 消息气泡 */}
                               <div className={`flex items-start gap-2 ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
                                 {/* 头像 */}
-                                <Avatar className="h-10 w-10 shrink-0 rounded">
-                                  <AvatarFallback className="rounded bg-primary text-primary-foreground text-sm">
+                                <Avatar className="h-10 w-10 shrink-0 rounded-lg shadow-sm">
+                                  <AvatarFallback className={`rounded-lg text-sm font-medium ${
+                                    isCurrentUser 
+                                      ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white'
+                                      : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                                  }`}>
                                     {reply.userName[0]}
                                   </AvatarFallback>
                                 </Avatar>
@@ -872,14 +882,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                 {/* 消息内容 */}
                                 <div className={`flex flex-col max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
                                   {/* 用户名 */}
-                                  <span className="text-xs text-muted-foreground mb-1">{reply.userName}</span>
+                                  <span className="text-xs text-slate-500 mb-1 font-medium">{reply.userName}</span>
                                   
                                   {/* 气泡 */}
                                   <div 
-                                    className={`relative px-3 py-2 rounded-lg text-sm break-words shadow-sm ${
+                                    className={`relative px-3 py-2 rounded-2xl text-sm break-words shadow-sm ${
                                       isCurrentUser 
-                                        ? 'bg-primary text-primary-foreground' 
-                                        : 'bg-card text-card-foreground border border-border'
+                                        ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-tr-sm' 
+                                        : 'bg-white text-slate-700 border border-slate-200 rounded-tl-sm'
                                     }`}
                                     style={{
                                       wordBreak: 'break-word'
@@ -887,7 +897,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                   >
                                     {/* 引用回复 */}
                                     {reply.parentId && (
-                                      <div className={`text-xs mb-1 pb-1 border-b ${isCurrentUser ? 'border-primary-foreground/20 text-primary-foreground/80' : 'border-border text-muted-foreground'}`}>
+                                      <div className={`text-xs mb-1 pb-1 border-b ${isCurrentUser ? 'border-white/30 text-white/80' : 'border-slate-200 text-slate-500'}`}>
                                         回复 {replies.find(r => r.id === reply.parentId)?.userName}
                                       </div>
                                     )}
@@ -902,11 +912,11 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                     
                                     {/* 附件 */}
                                     {reply.attachments && reply.attachments.length > 0 && (
-                                      <div className={`mt-2 pt-2 border-t space-y-1 ${isCurrentUser ? 'border-primary-foreground/20' : 'border-border'}`}>
+                                      <div className={`mt-2 pt-2 border-t space-y-1 ${isCurrentUser ? 'border-white/30' : 'border-slate-200'}`}>
                                         {reply.attachments.map((att, idx) => (
                                           <div 
                                             key={idx} 
-                                            className={`flex items-center gap-1.5 text-xs cursor-pointer hover:underline ${isCurrentUser ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}
+                                            className={`flex items-center gap-1.5 text-xs cursor-pointer hover:underline ${isCurrentUser ? 'text-white/90' : 'text-slate-500'}`}
                                           >
                                             <Paperclip className="h-3 w-3" />
                                             <span className="truncate">{att}</span>
@@ -926,14 +936,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   
                   {/* 输入区 */}
                   {currentUser && canComment && (
-                    <div className="bg-card border-t border-border p-2">
+                    <div className="bg-white border-t-2 border-emerald-200 p-3">
                       {/* 回复提示 */}
                       {replyingTo && (
-                        <div className="flex items-center justify-between bg-muted rounded px-2 py-1 mb-2 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between bg-emerald-50 rounded-lg px-3 py-2 mb-2 text-xs text-emerald-700 border border-emerald-200">
                           <span>回复 {replies.find(r => r.id === replyingTo)?.userName}</span>
                           <button 
                             onClick={() => setReplyingTo(null)}
-                            className="text-muted-foreground hover:text-foreground"
+                            className="text-emerald-500 hover:text-emerald-700"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -942,21 +952,21 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       
                       {/* 附件预览 */}
                       {attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-2">
+                        <div className="flex flex-wrap gap-1.5 mb-2">
                           {attachments.map((file) => (
                             <div 
                               key={file.id} 
-                              className="flex items-center gap-1 bg-white rounded px-2 py-1 text-xs"
+                              className="flex items-center gap-1.5 bg-slate-100 rounded-lg px-2.5 py-1.5 text-xs border border-slate-200"
                             >
                               {file.type.startsWith('image/') ? (
-                                <ImageIcon className="h-3 w-3 text-[#576B95]" />
+                                <ImageIcon className="h-3 w-3 text-emerald-600" />
                               ) : (
-                                <File className="h-3 w-3 text-[#576B95]" />
+                                <File className="h-3 w-3 text-emerald-600" />
                               )}
-                              <span className="truncate max-w-[80px]">{file.name}</span>
+                              <span className="truncate max-w-[80px] text-slate-600">{file.name}</span>
                               <button 
                                 onClick={() => handleRemoveAttachment(file.id)}
-                                className="text-[#999] hover:text-[#666]"
+                                className="text-slate-400 hover:text-slate-600"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -970,7 +980,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                         {/* 附件按钮 */}
                         <button 
                           onClick={() => fileInputRef.current?.click()}
-                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded hover:bg-[#E5E5E5] text-[#666]"
+                          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
                         >
                           <Plus className="h-5 w-5" />
                         </button>
@@ -981,6 +991,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                             placeholder="输入消息..."
                             value={newReply}
                             onChange={(e) => setNewReply(e.target.value)}
+                            className="min-h-[40px] max-h-[120px] resize-none rounded-xl bg-slate-50 border-slate-200 focus:border-emerald-400 focus:ring-emerald-400/20"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault()
@@ -989,7 +1000,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                 }
                               }
                             }}
-                            className="min-h-[36px] max-h-[120px] py-2 px-3 resize-none bg-white border-none rounded-lg text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                             rows={1}
                           />
                         </div>
@@ -998,10 +1008,10 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                         <Button
                           onClick={handleSubmitReply}
                           disabled={!newReply.trim() || isSubmitting}
-                          className={`shrink-0 h-8 px-4 rounded ${
+                          className={`shrink-0 h-9 px-5 rounded-xl font-medium transition-all ${
                             newReply.trim() 
-                              ? 'bg-[#07C160] hover:bg-[#06AD56] text-white' 
-                              : 'bg-[#E5E5E5] text-[#B2B2B2] cursor-not-allowed'
+                              ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-sm' 
+                              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                           }`}
                         >
                           {isSubmitting ? (
