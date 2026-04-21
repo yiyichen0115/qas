@@ -26,9 +26,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MainLayout } from '@/components/layout/main-layout'
-import { documentTypeStorage, documentStorage, sequenceStorage, userStorage, workflowStorage } from '@/lib/storage'
+import { documentTypeStorage, documentStorage, sequenceStorage, userStorage, workflowStorage, partStorage, orderStorage, vehicleStorage } from '@/lib/storage'
 import { getVehicleByVin, getDealerByCode, type VehicleInfo, type Dealer } from '@/lib/base-data'
-import type { DocumentType, FormField, Document, WorkflowConfig } from '@/lib/types'
+import type { DocumentType, FormField, Document, WorkflowConfig, Part, Order, Vehicle } from '@/lib/types'
 
 function generateId() {
   return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -70,17 +70,54 @@ const DEALER_FIELD_MAPPINGS: Record<string, keyof Dealer> = {
 }
 
 // 检测字段是否是VIN字段
-  function isVinField(fieldName: string): boolean {
+function isVinField(fieldName: string): boolean {
   const vinFieldNames = ['vin', 'vin_code', 'vinCode', 'vehicle_vin']
-  const result = vinFieldNames.includes(fieldName.toLowerCase())
-  console.log('[v0] isVinField检查:', fieldName, '结果:', result)
-  return result
-  }
+  return vinFieldNames.includes(fieldName.toLowerCase())
+}
 
 // 检测字段是否是经销商编码字段
 function isDealerCodeField(fieldName: string): boolean {
   const dealerCodeNames = ['dealer_code', 'dealerCode', 'dealer_id', 'dealerId']
   return dealerCodeNames.includes(fieldName.toLowerCase())
+}
+
+// 检测字段是否是配件编号字段
+function isPartNumberField(fieldName: string): boolean {
+  const partNumberNames = ['part_number', 'partNumber', 'part_code', 'partCode']
+  return partNumberNames.includes(fieldName.toLowerCase())
+}
+
+// 检测字段是否是订单号字段
+function isOrderNumberField(fieldName: string): boolean {
+  const orderNumberNames = ['order_number', 'orderNumber', 'order_no', 'orderNo']
+  return orderNumberNames.includes(fieldName.toLowerCase())
+}
+
+// 配件联动字段映射
+const PART_FIELD_MAPPINGS: Record<string, keyof Part> = {
+  'part_name': 'partName',
+  'partName': 'partName',
+  'part_category': 'category',
+  'category': 'category',
+  'specification': 'specification',
+  'unit': 'unit',
+  'price': 'price',
+  'supplier': 'supplier',
+}
+
+// 订单联动字段映射
+const ORDER_FIELD_MAPPINGS: Record<string, keyof Order> = {
+  'delivery_number': 'deliveryNumber',
+  'deliveryNumber': 'deliveryNumber',
+  'warehouse': 'warehouse',
+  'dealer_code': 'dealerCode',
+  'dealerCode': 'dealerCode',
+  'dealer_name': 'dealerName',
+  'dealerName': 'dealerName',
+  'order_date': 'orderDate',
+  'orderDate': 'orderDate',
+  'delivery_date': 'deliveryDate',
+  'deliveryDate': 'deliveryDate',
 }
 
 interface FieldRendererProps {
@@ -89,7 +126,9 @@ interface FieldRendererProps {
   onChange: (value: unknown) => void
   onVinChange?: (vin: string, vehicleInfo: VehicleInfo | undefined) => void
   onDealerCodeChange?: (code: string, dealer: Dealer | undefined) => void
-  linkedInfo?: { type: 'vin' | 'dealer', found: boolean }
+  onPartNumberChange?: (partNumber: string, part: Part | undefined) => void
+  onOrderNumberChange?: (orderNumber: string, order: Order | undefined) => void
+  linkedInfo?: { type: 'vin' | 'dealer' | 'part' | 'order', found: boolean }
 }
 
 function FieldRenderer({ 
@@ -98,6 +137,8 @@ function FieldRenderer({
   onChange,
   onVinChange,
   onDealerCodeChange,
+  onPartNumberChange,
+  onOrderNumberChange,
   linkedInfo,
 }: FieldRendererProps) {
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,9 +147,7 @@ function FieldRenderer({
     
     // VIN联动
     if (isVinField(field.name) && onVinChange) {
-      console.log('[v0] VIN输入:', newValue, '长度:', newValue.length)
       const vehicleInfo = newValue.length >= 17 ? getVehicleByVin(newValue) : undefined
-      console.log('[v0] VIN查询结果:', vehicleInfo)
       onVinChange(newValue, vehicleInfo)
     }
     
@@ -116,6 +155,18 @@ function FieldRenderer({
     if (isDealerCodeField(field.name) && onDealerCodeChange) {
       const dealer = newValue.length > 0 ? getDealerByCode(newValue) : undefined
       onDealerCodeChange(newValue, dealer)
+    }
+    
+    // 配件编号联动
+    if (isPartNumberField(field.name) && onPartNumberChange) {
+      const part = newValue.length > 0 ? partStorage.getByPartNumber(newValue) : undefined
+      onPartNumberChange(newValue, part)
+    }
+    
+    // 订单号联动
+    if (isOrderNumberField(field.name) && onOrderNumberChange) {
+      const order = newValue.length > 0 ? orderStorage.getByOrderNumber(newValue) : undefined
+      onOrderNumberChange(newValue, order)
     }
   }
 
@@ -290,6 +341,8 @@ function CreateDocumentContent() {
   const [documentNumber, setDocumentNumber] = useState('')
   const [vinInfo, setVinInfo] = useState<VehicleInfo | undefined>()
   const [dealerInfo, setDealerInfo] = useState<Dealer | undefined>()
+  const [partInfo, setPartInfo] = useState<Part | undefined>()
+  const [orderInfo, setOrderInfo] = useState<Order | undefined>()
   const [showVinDialog, setShowVinDialog] = useState(false)
   const [showDealerDialog, setShowDealerDialog] = useState(false)
 
@@ -389,6 +442,52 @@ function CreateDocumentContent() {
       }
     }
   }, [documentType, dealerInfo])
+
+  // 配件编号联动处理
+  const handlePartNumberChange = useCallback((partNumber: string, part: Part | undefined) => {
+    setPartInfo(part)
+    
+    if (part && documentType) {
+      const updates: Record<string, unknown> = {}
+      
+      documentType.fields.forEach(field => {
+        if (PART_FIELD_MAPPINGS[field.name]) {
+          const partProp = PART_FIELD_MAPPINGS[field.name]
+          const value = part[partProp]
+          if (value !== undefined) {
+            updates[field.name] = value
+          }
+        }
+      })
+      
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }))
+      }
+    }
+  }, [documentType])
+
+  // 订单号联动处理
+  const handleOrderNumberChange = useCallback((orderNumber: string, order: Order | undefined) => {
+    setOrderInfo(order)
+    
+    if (order && documentType) {
+      const updates: Record<string, unknown> = {}
+      
+      documentType.fields.forEach(field => {
+        if (ORDER_FIELD_MAPPINGS[field.name]) {
+          const orderProp = ORDER_FIELD_MAPPINGS[field.name]
+          const value = order[orderProp]
+          if (value !== undefined) {
+            updates[field.name] = value
+          }
+        }
+      })
+      
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }))
+      }
+    }
+  }, [documentType])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -492,13 +591,19 @@ function CreateDocumentContent() {
     }
   }
 
-  // 获取字段的联动信息
-  const getLinkedInfo = (field: FormField): { type: 'vin' | 'dealer', found: boolean } | undefined => {
+// 获取字段的联动信息
+  const getLinkedInfo = (field: FormField): { type: 'vin' | 'dealer' | 'part' | 'order', found: boolean } | undefined => {
     if (isVinField(field.name)) {
       return { type: 'vin', found: !!vinInfo }
     }
     if (isDealerCodeField(field.name)) {
       return { type: 'dealer', found: !!dealerInfo }
+    }
+    if (isPartNumberField(field.name)) {
+      return { type: 'part', found: !!partInfo }
+    }
+    if (isOrderNumberField(field.name)) {
+      return { type: 'order', found: !!orderInfo }
     }
     return undefined
   }
@@ -622,35 +727,33 @@ function CreateDocumentContent() {
         </Dialog>
 
         {/* 表单内容 */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-5xl">
-            {/* 基本信息 */}
-            <div className="mb-6">
+        <div className="flex-1 overflow-auto">
+          <div className="p-6">
+            {/* 基本信息卡片 */}
+            <div className="mb-6 rounded-lg border border-border bg-card p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-4 w-1 rounded-full bg-primary" />
-                <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h3 className="text-base font-semibold text-foreground">基本信息</h3>
               </div>
-              <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm text-muted-foreground shrink-0">单据类型</span>
-                  <span className="text-sm font-medium">{documentType.name}</span>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground">单据类型</span>
+                  <p className="text-sm font-medium">{documentType.name}</p>
                 </div>
                 {documentType.description && (
-                  <div className="flex items-baseline gap-2 sm:col-span-2 lg:col-span-3">
-                    <span className="text-sm text-muted-foreground shrink-0">说明</span>
-                    <span className="text-sm">{documentType.description}</span>
+                  <div className="space-y-1 col-span-2 sm:col-span-2 lg:col-span-3 xl:col-span-5">
+                    <span className="text-xs text-muted-foreground">说明</span>
+                    <p className="text-sm">{documentType.description}</p>
                   </div>
                 )}
               </div>
             </div>
-
-            <Separator className="my-6" />
             
-            {/* 表单内容 */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-4 w-1 rounded-full bg-primary" />
-                <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+            {/* 表单内容卡片 */}
+            <div className="rounded-lg border border-border bg-card p-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h3 className="text-base font-semibold text-foreground">填写表单</h3>
               </div>
               {documentType.fields.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
@@ -699,18 +802,18 @@ function CreateDocumentContent() {
                       
                       {/* 字段网格 */}
                       {group.fields.length > 0 && (
-                        <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                           {group.fields.map((field) => {
                             const widthClass = field.width === 'full' 
-                              ? 'col-span-1 md:col-span-2 lg:col-span-3' 
+                              ? 'col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4' 
                               : field.width === 'half' 
-                                ? 'col-span-1 md:col-span-1 lg:col-span-1'
+                                ? 'col-span-1 lg:col-span-2 xl:col-span-2'
                                 : field.width === 'third'
                                   ? 'col-span-1'
-                                  : 'col-span-1 md:col-span-2 lg:col-span-3'
+                                  : 'col-span-1'
                             
                             const isFullWidth = field.type === 'textarea'
-                            const finalWidthClass = isFullWidth ? 'col-span-1 md:col-span-2 lg:col-span-3' : widthClass
+                            const finalWidthClass = isFullWidth ? 'col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4' : widthClass
 
                             return (
                               <div key={field.id} className={`space-y-2 ${finalWidthClass}`}>
@@ -730,6 +833,8 @@ function CreateDocumentContent() {
                                   onChange={(value) => handleFieldChange(field.name, value)}
                                   onVinChange={handleVinChange}
                                   onDealerCodeChange={handleDealerCodeChange}
+                                  onPartNumberChange={handlePartNumberChange}
+                                  onOrderNumberChange={handleOrderNumberChange}
                                   linkedInfo={getLinkedInfo(field)}
                                 />
                                 {field.description && (
@@ -746,15 +851,15 @@ function CreateDocumentContent() {
                     </div>
                   ))
                 })()}
-            </div>
 
-            {workflow && (
-              <div className="mt-6 pt-4 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  提交后将进入「{workflow.name}」审批流程
-                </p>
-              </div>
-            )}
+              {workflow && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <p className="text-sm text-muted-foreground">
+                    提交后将进入「{workflow.name}」审批流程
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

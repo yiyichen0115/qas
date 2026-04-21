@@ -16,6 +16,9 @@ import type {
   AIConversation,
   PredefinedField,
   AIDocumentRule,
+  Part,
+  Order,
+  Vehicle,
 } from '@/lib/types'
 
 const STORAGE_KEYS = {
@@ -37,6 +40,10 @@ const STORAGE_KEYS = {
   KNOWLEDGE_ARTICLES: 'lowcode_knowledge_articles',
   AI_CONVERSATIONS: 'lowcode_ai_conversations',
   AI_DOCUMENT_RULES: 'lowcode_ai_document_rules',
+  // 基础库
+  PARTS: 'lowcode_parts',
+  ORDERS: 'lowcode_orders',
+  VEHICLES: 'lowcode_vehicles',
 } as const
 
 // 通用存储操作
@@ -255,7 +262,8 @@ export const documentStorage = {
   
   getById: (id: string): Document | undefined => {
     const docs = documentStorage.getAll()
-    return docs.find(d => d.id === id)
+    // 同时支持通过 id 和 documentNumber 查找
+    return docs.find(d => d.id === id || d.documentNumber === id)
   },
   
   getByStatus: (status: string): Document[] => {
@@ -289,7 +297,10 @@ export const approvalStorage = {
   getAll: (): ApprovalRecord[] => getItem(STORAGE_KEYS.APPROVALS, []),
   
   getByDocumentId: (documentId: string): ApprovalRecord[] => {
-    return approvalStorage.getAll().filter(a => a.documentId === documentId)
+    // 先尝试通过 documentId 直接查找，也支持通过 documentNumber 查找
+    const doc = documentStorage.getById(documentId)
+    const actualDocId = doc?.id || documentId
+    return approvalStorage.getAll().filter(a => a.documentId === actualDocId || a.documentId === documentId)
   },
   
   save: (record: ApprovalRecord): void => {
@@ -394,7 +405,10 @@ export const replyStorage = {
   getAll: (): DocumentReply[] => getItem(STORAGE_KEYS.REPLIES, []),
   
   getByDocumentId: (documentId: string): DocumentReply[] => {
-    return replyStorage.getAll().filter(r => r.documentId === documentId)
+    // 先尝试通过 documentId 直接查找，也支持通过 documentNumber 查找
+    const doc = documentStorage.getById(documentId)
+    const actualDocId = doc?.id || documentId
+    return replyStorage.getAll().filter(r => r.documentId === actualDocId || r.documentId === documentId)
   },
   
   save: (reply: DocumentReply): void => {
@@ -406,6 +420,126 @@ export const replyStorage = {
   delete: (id: string): void => {
     const replies = replyStorage.getAll().filter(r => r.id !== id)
     setItem(STORAGE_KEYS.REPLIES, replies)
+  },
+}
+
+// ==================== 配件基础库存储 ====================
+
+export const partStorage = {
+  getAll: (): Part[] => getItem(STORAGE_KEYS.PARTS, getDefaultParts()),
+  
+  getById: (id: string): Part | undefined => {
+    return partStorage.getAll().find(p => p.id === id)
+  },
+  
+  getByPartNumber: (partNumber: string): Part | undefined => {
+    return partStorage.getAll().find(p => p.partNumber === partNumber)
+  },
+  
+  search: (keyword: string): Part[] => {
+    const kw = keyword.toLowerCase()
+    return partStorage.getAll().filter(p => 
+      p.partNumber.toLowerCase().includes(kw) || 
+      p.partName.toLowerCase().includes(kw)
+    )
+  },
+  
+  save: (part: Part): void => {
+    const parts = partStorage.getAll()
+    const index = parts.findIndex(p => p.id === part.id)
+    if (index >= 0) {
+      parts[index] = { ...part, updatedAt: new Date().toISOString() }
+    } else {
+      parts.push({ ...part, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    }
+    setItem(STORAGE_KEYS.PARTS, parts)
+  },
+  
+  delete: (id: string): void => {
+    const parts = partStorage.getAll().filter(p => p.id !== id)
+    setItem(STORAGE_KEYS.PARTS, parts)
+  },
+}
+
+// ==================== 订单基础库存储 ====================
+
+export const orderStorage = {
+  getAll: (): Order[] => getItem(STORAGE_KEYS.ORDERS, getDefaultOrders()),
+  
+  getById: (id: string): Order | undefined => {
+    return orderStorage.getAll().find(o => o.id === id)
+  },
+  
+  getByOrderNumber: (orderNumber: string): Order | undefined => {
+    return orderStorage.getAll().find(o => o.orderNumber === orderNumber)
+  },
+  
+  getByDeliveryNumber: (deliveryNumber: string): Order | undefined => {
+    return orderStorage.getAll().find(o => o.deliveryNumber === deliveryNumber)
+  },
+  
+  search: (keyword: string): Order[] => {
+    const kw = keyword.toLowerCase()
+    return orderStorage.getAll().filter(o => 
+      o.orderNumber.toLowerCase().includes(kw) || 
+      (o.deliveryNumber?.toLowerCase().includes(kw)) ||
+      (o.dealerCode?.toLowerCase().includes(kw))
+    )
+  },
+  
+  save: (order: Order): void => {
+    const orders = orderStorage.getAll()
+    const index = orders.findIndex(o => o.id === order.id)
+    if (index >= 0) {
+      orders[index] = { ...order, updatedAt: new Date().toISOString() }
+    } else {
+      orders.push({ ...order, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    }
+    setItem(STORAGE_KEYS.ORDERS, orders)
+  },
+  
+  delete: (id: string): void => {
+    const orders = orderStorage.getAll().filter(o => o.id !== id)
+    setItem(STORAGE_KEYS.ORDERS, orders)
+  },
+}
+
+// ==================== 车辆基础库存储 ====================
+
+export const vehicleStorage = {
+  getAll: (): Vehicle[] => getItem(STORAGE_KEYS.VEHICLES, getDefaultVehicles()),
+  
+  getById: (id: string): Vehicle | undefined => {
+    return vehicleStorage.getAll().find(v => v.id === id)
+  },
+  
+  getByVin: (vin: string): Vehicle | undefined => {
+    return vehicleStorage.getAll().find(v => v.vin === vin)
+  },
+  
+  search: (keyword: string): Vehicle[] => {
+    const kw = keyword.toLowerCase()
+    return vehicleStorage.getAll().filter(v => 
+      v.vin.toLowerCase().includes(kw) || 
+      (v.platform?.toLowerCase().includes(kw)) ||
+      (v.model?.toLowerCase().includes(kw))
+    )
+  },
+  
+  save: (vehicle: Vehicle): void => {
+    const vehicles = vehicleStorage.getAll()
+    const index = vehicles.findIndex(v => v.id === vehicle.id)
+    if (index >= 0) {
+      vehicles[index] = { ...vehicle, updatedAt: new Date().toISOString() }
+    } else {
+      vehicles.push({ ...vehicle, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    }
+    setItem(STORAGE_KEYS.VEHICLES, vehicles)
+  },
+  
+  delete: (id: string): void => {
+    const vehicles = vehicleStorage.getAll().filter(v => v.id !== id)
+    setItem(STORAGE_KEYS.VEHICLES, vehicles)
   },
 }
 
@@ -1470,7 +1604,7 @@ function getDefaultAIDocumentRules(): AIDocumentRule[] {
     {
       id: 'rule_battery_issue',
       name: '电池问题规则',
-      description: '当用户提到电池、充电、续航等问题时，先提供诊断建议，必要时建议创建单据',
+      description: '当用户提到电池、充电、续航等问题时，先���供诊断建议，必要时建议创建单据',
       enabled: true,
       priority: 2,
       matchConditions: [
@@ -1484,7 +1618,7 @@ function getDefaultAIDocumentRules(): AIDocumentRule[] {
       matchLogic: 'or',
       action: {
         type: 'show_guide',
-        guideMessage: '关于电池/充电问题，请先确认：\n1. 充电桩是否正常工作\n2. 充电枪连接是否牢固\n3. 是否有相关故障码\n\n如果以上检查都正常但问题仍存在，建议提交技术求援单。',
+        guideMessage: '关于电池/充电问题，请先确认：\n1. 充电桩是否正常工作\n2. 充电枪连接是否牢固\n3. 是否有���关故障码\n\n如果以上检查都正常但问题仍存在，建议提交技术求援单。',
         relatedArticleIds: ['kb_002', 'kb_003'],
         documentTypeId: 'doctype_support_feedback',
       },
@@ -1494,7 +1628,7 @@ function getDefaultAIDocumentRules(): AIDocumentRule[] {
     {
       id: 'rule_fault_code',
       name: '故障码查询规则',
-      description: '当用户输入故障码格式时，自动识别并提供相关信息',
+      description: '当用户输入故障码格式时，自���识别并提供相关信息',
       enabled: true,
       priority: 3,
       matchConditions: [
@@ -1533,6 +1667,204 @@ function getDefaultAIDocumentRules(): AIDocumentRule[] {
         type: 'show_guide',
         guideMessage: '关于配件问题，您可以：\n1. 在备件目录中查询配件信息\n2. 联系配件部门咨询库存\n3. 如需紧急配件支持，可提交配件申请单',
       },
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]
+}
+
+// ==================== 默认配件数据 ====================
+
+function getDefaultParts(): Part[] {
+  const now = new Date().toISOString()
+  return [
+    {
+      id: 'part_001',
+      partNumber: '23697773',
+      partName: '前蒙皮主体',
+      category: '车身覆盖件',
+      specification: '原厂件',
+      unit: '件',
+      price: 1200,
+      supplier: '原厂供应商',
+      applicableModels: ['宏光MINIEV', '五菱缤果'],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'part_002',
+      partNumber: '24108890',
+      partName: '后保险杠总成',
+      category: '车身覆盖件',
+      specification: '原厂件',
+      unit: '件',
+      price: 850,
+      supplier: '原厂供应商',
+      applicableModels: ['宏光MINIEV'],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'part_003',
+      partNumber: '24156723',
+      partName: '前大灯总成（左）',
+      category: '灯光系统',
+      specification: 'LED',
+      unit: '件',
+      price: 680,
+      supplier: '原厂供应商',
+      applicableModels: ['宏光MINIEV', '五菱缤果', '五菱星光'],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'part_004',
+      partNumber: '24089456',
+      partName: '动力电池模组',
+      category: '电池系统',
+      specification: '磷酸铁锂',
+      unit: '组',
+      price: 15000,
+      supplier: '宁德时代',
+      applicableModels: ['宏光MINIEV', '五菱缤果'],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'part_005',
+      partNumber: '23456789',
+      partName: '驱动电机总成',
+      category: '动力系统',
+      specification: '永磁同步电机',
+      unit: '台',
+      price: 8500,
+      supplier: '原厂供应商',
+      applicableModels: ['宏光MINIEV', '五菱缤果', '五菱星光'],
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]
+}
+
+// ==================== 默认订单数据 ====================
+
+function getDefaultOrders(): Order[] {
+  const now = new Date().toISOString()
+  return [
+    {
+      id: 'order_001',
+      orderNumber: 'PO202604150001',
+      deliveryNumber: '817589781',
+      warehouse: '柳州中心库',
+      dealerCode: '6331172',
+      dealerName: '浙江杭州宏达4S店',
+      orderDate: '2026-04-15',
+      deliveryDate: '2026-04-18',
+      status: 'delivered',
+      items: [
+        { id: 'item_001', orderId: 'order_001', partNumber: '23697773', partName: '前蒙皮主体', quantity: 2, price: 1200, amount: 2400 },
+        { id: 'item_002', orderId: 'order_001', partNumber: '24108890', partName: '后保险杠总成', quantity: 1, price: 850, amount: 850 },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'order_002',
+      orderNumber: 'PO202604160002',
+      deliveryNumber: '817590123',
+      warehouse: '青岛分库',
+      dealerCode: '6331173',
+      dealerName: '山东青岛远航4S店',
+      orderDate: '2026-04-16',
+      deliveryDate: '2026-04-19',
+      status: 'shipped',
+      items: [
+        { id: 'item_003', orderId: 'order_002', partNumber: '24156723', partName: '前大灯总成（左）', quantity: 3, price: 680, amount: 2040 },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'order_003',
+      orderNumber: 'PO202604180003',
+      deliveryNumber: '',
+      warehouse: '柳州中心库',
+      dealerCode: '6331174',
+      dealerName: '广东深圳鹏程4S店',
+      orderDate: '2026-04-18',
+      status: 'pending',
+      items: [
+        { id: 'item_004', orderId: 'order_003', partNumber: '24089456', partName: '动力电池模组', quantity: 1, price: 15000, amount: 15000 },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]
+}
+
+// ==================== 默认车辆数据 ====================
+
+function getDefaultVehicles(): Vehicle[] {
+  const now = new Date().toISOString()
+  return [
+    {
+      id: 'vehicle_001',
+      vin: 'LK6ADAE15ME534998',
+      platform: '宏光MINIEV',
+      model: '宏光MINIEV 马卡龙版',
+      productionDate: '2021-09-21',
+      engineNumber: '',
+      color: '白桃粉',
+      dealerCode: '6331172',
+      saleDate: '2021-10-15',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'vehicle_002',
+      vin: 'LK6ADAE15NE678234',
+      platform: '宏光MINIEV',
+      model: '宏光MINIEV GAMEBOY版',
+      productionDate: '2022-03-15',
+      engineNumber: '',
+      color: '电光蓝',
+      dealerCode: '6331173',
+      saleDate: '2022-04-20',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'vehicle_003',
+      vin: 'LK6BDCE18PE890123',
+      platform: '五菱缤果',
+      model: '五菱缤果 410km尊享款',
+      productionDate: '2023-06-10',
+      engineNumber: '',
+      color: '奶咖白',
+      dealerCode: '6331174',
+      saleDate: '2023-07-05',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'vehicle_004',
+      vin: 'LK6CDFE20QE456789',
+      platform: '五菱星光',
+      model: '五菱星光 150km进阶版',
+      productionDate: '2024-01-20',
+      engineNumber: '',
+      color: '星河银',
+      dealerCode: '6331172',
+      saleDate: '2024-02-28',
+      status: 'active',
       createdAt: now,
       updatedAt: now,
     },

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { InitPacDocument } from '@/components/init-pac-document'
+import { InitLacDocument } from '@/components/init-lac-document'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -37,6 +39,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
+        <InitPacDocument />
+        <InitLacDocument />
         {children}
         <Analytics />
       </body>

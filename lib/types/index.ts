@@ -1,3 +1,65 @@
+// ==================== 基础库类型 ====================
+
+// 配件基础库
+export interface Part {
+  id: string
+  partNumber: string // 配件编号
+  partName: string // 配件名称
+  category?: string // 配件分类
+  specification?: string // 规格型号
+  unit?: string // 单位
+  price?: number // 单价
+  supplier?: string // 供应商
+  applicableModels?: string[] // 适用车型
+  status: 'active' | 'inactive'
+  createdAt: string
+  updatedAt: string
+}
+
+// 订单基础库
+export interface Order {
+  id: string
+  orderNumber: string // 订单号
+  deliveryNumber?: string // 发货号
+  warehouse?: string // 发货库
+  dealerCode?: string // 经销商编码
+  dealerName?: string // 经销商名称
+  orderDate?: string // 订单日期
+  deliveryDate?: string // 发货日期
+  status: 'pending' | 'shipped' | 'delivered' | 'cancelled'
+  // 订单明细
+  items?: OrderItem[]
+  createdAt: string
+  updatedAt: string
+}
+
+// 订单明细
+export interface OrderItem {
+  id: string
+  orderId: string
+  partNumber: string // 配件编号
+  partName: string // 配件名称
+  quantity: number // 数量
+  price?: number // 单价
+  amount?: number // 金额
+}
+
+// 车辆基础库
+export interface Vehicle {
+  id: string
+  vin: string // VIN码
+  platform?: string // 车型平台
+  model?: string // 车型
+  productionDate?: string // 生产日期
+  engineNumber?: string // 发动机号
+  color?: string // 颜色
+  dealerCode?: string // 经销商编码
+  saleDate?: string // 销售日期
+  status: 'active' | 'inactive'
+  createdAt: string
+  updatedAt: string
+}
+
 // ==================== 预定义字段模板 ====================
 
 export interface PredefinedField {
@@ -619,7 +681,7 @@ export interface AIMatchCondition {
   id: string
   type: 'keyword' | 'intent' | 'category' | 'entity'
   // keyword: 关键词匹配
-  // intent: 意图匹配（如：咨询、投诉、求援）
+  // intent: 意图匹配（如：咨询、投诉、求援��
   // category: 分类匹配（如：电池、充电、底盘）
   // entity: 实体匹配（如：故障码格式）
   value: string // 匹配值，支持多个值用逗号分隔
