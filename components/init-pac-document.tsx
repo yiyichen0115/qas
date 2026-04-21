@@ -6,8 +6,8 @@
  */
 
 import { useEffect, useState } from 'react'
-import { documentTypeStorage } from '@/lib/storage'
-import type { DocumentType, FormField, DocumentNumberRule, ActionButton } from '@/lib/types'
+import { documentTypeStorage, workflowStorage } from '@/lib/storage'
+import type { DocumentType, FormField, DocumentNumberRule, ActionButton, WorkflowConfig, WorkflowNode, WorkflowEdge, FlowEvent, DocumentStatusConfig } from '@/lib/types'
 
 // PAC单据类型配置
 const pacDocumentType: DocumentType = {
@@ -409,6 +409,344 @@ const pacDocumentType: DocumentType = {
   updatedAt: new Date().toISOString(),
 }
 
+// PAC单据状态配置
+const pacStatuses: DocumentStatusConfig[] = [
+  { id: 'status_draft', code: 'draft', name: '草稿', color: '#6B7280', isInitial: true, isFinal: false, order: 1 },
+  { id: 'status_pending', code: 'pending', name: '待处理', color: '#F59E0B', isInitial: false, isFinal: false, order: 2 },
+  { id: 'status_processing', code: 'processing', name: '处理中', color: '#3B82F6', isInitial: false, isFinal: false, order: 3 },
+  { id: 'status_replied', code: 'replied', name: '已回复', color: '#10B981', isInitial: false, isFinal: false, order: 4 },
+  { id: 'status_closed', code: 'closed', name: '已关闭', color: '#6B7280', isInitial: false, isFinal: true, order: 5 },
+  { id: 'status_rejected', code: 'rejected', name: '已驳回', color: '#EF4444', isInitial: false, isFinal: true, order: 6 },
+]
+
+// PAC工作流节点配置
+const pacWorkflowNodes: WorkflowNode[] = [
+  // 开始节点
+  {
+    id: 'node_start',
+    type: 'start',
+    position: { x: 250, y: 50 },
+    data: {
+      label: '开始',
+      description: '流程开始',
+    },
+  },
+  // 创建单据节点
+  {
+    id: 'node_create',
+    type: 'create',
+    position: { x: 250, y: 150 },
+    data: {
+      label: '创建单据',
+      description: '经销商创建PAC问题单',
+      permissions: [
+        {
+          roleId: 'dealer',
+          fieldPermissions: {},
+          canView: true,
+          canEdit: true,
+          canApprove: false,
+          canReject: false,
+          canTransfer: false,
+          canComment: true,
+        },
+      ],
+    },
+  },
+  // 提交审核节点
+  {
+    id: 'node_submit',
+    type: 'submit',
+    position: { x: 250, y: 250 },
+    data: {
+      label: '提交',
+      description: '提交问题等待处理',
+    },
+  },
+  // 工程师审核节点
+  {
+    id: 'node_review',
+    type: 'approve',
+    position: { x: 250, y: 350 },
+    data: {
+      label: '工程师审核',
+      description: '工程师审核问题并决定处理方式',
+      approvers: {
+        type: 'role',
+        value: ['engineer', 'role_engineer'],
+        multiApprove: 'any',
+      },
+      permissions: [
+        {
+          roleId: 'engineer',
+          fieldPermissions: {},
+          canView: true,
+          canEdit: false,
+          canApprove: true,
+          canReject: true,
+          canTransfer: true,
+          canComment: true,
+        },
+        {
+          roleId: 'admin',
+          fieldPermissions: {},
+          canView: true,
+          canEdit: true,
+          canApprove: true,
+          canReject: true,
+          canTransfer: true,
+          canComment: true,
+        },
+      ],
+      timeout: 48,
+      timeoutAction: 'notify',
+    },
+  },
+  // 条件分支节点
+  {
+    id: 'node_condition',
+    type: 'condition',
+    position: { x: 250, y: 450 },
+    data: {
+      label: '处理结果',
+      description: '根据审核结果分流',
+      conditions: [
+        {
+          id: 'cond_approve',
+          name: '通过',
+          rules: [],
+          logic: 'and',
+          targetNodeId: 'node_process',
+        },
+        {
+          id: 'cond_reject',
+          name: '驳回',
+          rules: [],
+          logic: 'and',
+          targetNodeId: 'node_rejected',
+        },
+      ],
+    },
+  },
+  // 处理中节点
+  {
+    id: 'node_process',
+    type: 'fill',
+    position: { x: 100, y: 550 },
+    data: {
+      label: '问题处理',
+      description: '工程师处理问题并回复方案',
+      permissions: [
+        {
+          roleId: 'engineer',
+          fieldPermissions: {},
+          canView: true,
+          canEdit: true,
+          canApprove: false,
+          canReject: false,
+          canTransfer: true,
+          canComment: true,
+        },
+      ],
+    },
+  },
+  // 回复方案节点
+  {
+    id: 'node_reply',
+    type: 'approve',
+    position: { x: 100, y: 650 },
+    data: {
+      label: '回复方案',
+      description: '工程师回复处理方案，等待经销商确认',
+      permissions: [
+        {
+          roleId: 'dealer',
+          fieldPermissions: {},
+          canView: true,
+          canEdit: false,
+          canApprove: true,
+          canReject: true,
+          canTransfer: false,
+          canComment: true,
+        },
+      ],
+    },
+  },
+  // 驳回节点
+  {
+    id: 'node_rejected',
+    type: 'end',
+    position: { x: 400, y: 550 },
+    data: {
+      label: '已驳回',
+      description: '问题已驳回',
+    },
+  },
+  // 关闭节点
+  {
+    id: 'node_closed',
+    type: 'end',
+    position: { x: 100, y: 750 },
+    data: {
+      label: '已关闭',
+      description: '问题已解决并关闭',
+    },
+  },
+]
+
+// PAC工作流连线配置
+const pacWorkflowEdges: WorkflowEdge[] = [
+  { id: 'edge_1', source: 'node_start', target: 'node_create' },
+  { id: 'edge_2', source: 'node_create', target: 'node_submit' },
+  { id: 'edge_3', source: 'node_submit', target: 'node_review' },
+  { id: 'edge_4', source: 'node_review', target: 'node_condition' },
+  { id: 'edge_5', source: 'node_condition', target: 'node_process', label: '通过', conditionId: 'cond_approve' },
+  { id: 'edge_6', source: 'node_condition', target: 'node_rejected', label: '驳回', conditionId: 'cond_reject' },
+  { id: 'edge_7', source: 'node_process', target: 'node_reply' },
+  { id: 'edge_8', source: 'node_reply', target: 'node_closed', label: '确认关闭' },
+  { id: 'edge_9', source: 'node_reply', target: 'node_process', label: '继续处理' },
+]
+
+// PAC工作流事件配置
+const pacFlowEvents: FlowEvent[] = [
+  // 提交事件
+  {
+    id: 'evt_submit',
+    type: 'submit',
+    name: '提交问题',
+    description: '经销商提交问题单',
+    enabled: true,
+    fromStatus: ['draft'],
+    toStatus: 'pending',
+    permissions: ['dealer', 'admin', 'role_admin'],
+    actions: [
+      {
+        type: 'notify',
+        config: {
+          recipients: ['engineer'],
+          template: '您有新的PAC问题单待处理',
+        },
+      },
+    ],
+  },
+  // 审核通过事件
+  {
+    id: 'evt_approve',
+    type: 'approve',
+    name: '审核通过',
+    description: '工程师审核通过，开始处理问题',
+    enabled: true,
+    fromStatus: ['pending'],
+    toStatus: 'processing',
+    permissions: ['engineer', 'admin', 'role_admin', 'role_engineer'],
+    actions: [
+      {
+        type: 'notify',
+        config: {
+          recipients: ['dealer'],
+          template: '您的问题单已审核通过，正在处理中',
+        },
+      },
+    ],
+  },
+  // 驳回事件
+  {
+    id: 'evt_reject',
+    type: 'reject',
+    name: '驳回问题',
+    description: '工程师驳回问题单',
+    enabled: true,
+    fromStatus: ['pending'],
+    toStatus: 'rejected',
+    permissions: ['engineer', 'admin', 'role_admin', 'role_engineer'],
+    actions: [
+      {
+        type: 'notify',
+        config: {
+          recipients: ['dealer'],
+          template: '您的问题单已被驳回，请查看驳回原因',
+        },
+      },
+    ],
+  },
+  // 回复方案事件
+  {
+    id: 'evt_reply',
+    type: 'complete',
+    name: '回复方案',
+    description: '工程师回复处理方案',
+    enabled: true,
+    fromStatus: ['processing', 'pending'],
+    toStatus: 'replied',
+    permissions: ['engineer', 'admin', 'role_admin', 'role_engineer'],
+    actions: [
+      {
+        type: 'notify',
+        config: {
+          recipients: ['dealer'],
+          template: '工程师已回复处理方案，请查看',
+        },
+      },
+    ],
+  },
+  // 关闭事件
+  {
+    id: 'evt_close',
+    type: 'complete',
+    name: '关闭单据',
+    description: '问题已解决，关闭单据',
+    enabled: true,
+    fromStatus: ['replied', 'processing', 'pending'],
+    toStatus: 'closed',
+    permissions: ['dealer', 'engineer', 'admin', 'role_admin', 'role_dealer', 'role_engineer'],
+  },
+  // 重新处理事件
+  {
+    id: 'evt_reprocess',
+    type: 'resubmit',
+    name: '继续处理',
+    description: '经销商要求继续处理',
+    enabled: true,
+    fromStatus: ['replied'],
+    toStatus: 'processing',
+    permissions: ['dealer', 'admin', 'role_admin', 'role_dealer'],
+    actions: [
+      {
+        type: 'notify',
+        config: {
+          recipients: ['engineer'],
+          template: '经销商要求继续处理问题',
+        },
+      },
+    ],
+  },
+  // 转单事件
+  {
+    id: 'evt_transfer',
+    type: 'transfer',
+    name: '转单',
+    description: '将问题转给其他工程师处理',
+    enabled: true,
+    fromStatus: ['pending', 'processing'],
+    permissions: ['engineer', 'admin', 'role_admin', 'role_engineer'],
+  },
+]
+
+// PAC工作流配置
+const pacWorkflow: WorkflowConfig = {
+  id: 'workflow_pac',
+  name: 'PAC问题处理流程',
+  categoryId: 'doctype_pac',
+  description: 'PAC产品售后问题处理工作流，包含提交、审核、处理、回复、关闭等环节',
+  nodes: pacWorkflowNodes,
+  edges: pacWorkflowEdges,
+  events: pacFlowEvents,
+  statuses: pacStatuses,
+  status: 'published',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+}
+
 export function InitPacDocument() {
   const [initialized, setInitialized] = useState(false)
 
@@ -433,6 +771,28 @@ export function InitPacDocument() {
       }
       documentTypeStorage.save(updatedType)
       console.log('PAC单据类型已更新字段配置')
+    }
+    
+    // 检查是否已存在PAC工作流
+    const existingWorkflows = workflowStorage.getAll()
+    const existingPacWorkflow = existingWorkflows.find(w => w.id === 'workflow_pac' || w.categoryId === 'doctype_pac')
+    
+    if (!existingPacWorkflow) {
+      // 不存在则创建工作流
+      workflowStorage.save(pacWorkflow)
+      console.log('PAC工作流已自动创建')
+    } else if ((existingPacWorkflow.events?.length || 0) < pacFlowEvents.length) {
+      // 如果事件数量少于配置，更新工作流
+      const updatedWorkflow = {
+        ...existingPacWorkflow,
+        nodes: pacWorkflowNodes,
+        edges: pacWorkflowEdges,
+        events: pacFlowEvents,
+        statuses: pacStatuses,
+        updatedAt: new Date().toISOString(),
+      }
+      workflowStorage.save(updatedWorkflow)
+      console.log('PAC工作流已更新配置')
     }
     
     setInitialized(true)
