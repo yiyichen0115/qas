@@ -739,70 +739,98 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {/* 右侧：审批流程和评论 */}
-            <div className="w-80 shrink-0 border-l border-border bg-muted/20 flex flex-col overflow-hidden">
-              {/* 审批流程 */}
-              <div className="p-4 border-b border-border">
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-medium">审批流程</h3>
+            <div className="w-96 shrink-0 border-l border-border flex flex-col overflow-hidden">
+              {/* 审批流程区块 */}
+              <div className="bg-gradient-to-b from-blue-50/80 to-white border-b-4 border-blue-100">
+                {/* 审批流程标题 */}
+                <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20 backdrop-blur">
+                    <Clock className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-semibold text-white">审批流程</h3>
+                    <p className="text-xs text-blue-100">Approval Process</p>
+                  </div>
+                  {approvals.length > 0 && (
+                    <span className="text-xs text-white/90 bg-white/20 px-2 py-0.5 rounded-full">
+                      {approvals.length} 条
+                    </span>
+                  )}
                 </div>
-                {approvals.length === 0 ? (
-                  <div className="py-6 text-center text-sm text-muted-foreground">
-                    暂无审批记录
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {approvals.map((approval, index) => (
-                      <div key={approval.id} className="flex gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                            approval.action === 'approve' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                          }`}>
-                            {approval.action === 'approve' ? (
-                              <CheckCircle className="h-3 w-3" />
-                            ) : (
-                              <XCircle className="h-3 w-3" />
-                            )}
-                          </div>
-                          {index < approvals.length - 1 && (
-                            <div className="w-px flex-1 bg-border mt-1" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0 pb-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium truncate">{approval.approverName}</span>
-                            <span className={`text-xs ${approval.action === 'approve' ? 'text-green-600' : 'text-destructive'}`}>
-                              {approval.action === 'approve' ? '通过' : '驳回'}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {new Date(approval.createdAt).toLocaleString()}
-                          </p>
-                          {approval.comment && (
-                            <p className="mt-1.5 text-xs bg-background rounded p-2 line-clamp-2">
-                              {approval.comment}
-                            </p>
-                          )}
-                        </div>
+                
+                {/* 审批记录列表 */}
+                <div className="p-4 max-h-56 overflow-auto">
+                  {approvals.length === 0 ? (
+                    <div className="py-6 text-center">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center">
+                        <Clock className="h-5 w-5 text-blue-300" />
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <p className="text-sm text-muted-foreground">暂无审批记录</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">提交后将显示审批进度</p>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      {/* 时间线 */}
+                      <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-blue-300 via-blue-200 to-transparent" />
+                      <div className="space-y-4">
+                        {approvals.map((approval, index) => (
+                          <div key={approval.id} className="relative flex gap-3 pl-1">
+                            <div className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full shadow-sm ring-4 ring-white ${
+                              approval.action === 'approve' 
+                                ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' 
+                                : 'bg-gradient-to-br from-red-400 to-red-600'
+                            }`}>
+                              {approval.action === 'approve' ? (
+                                <CheckCircle className="h-4 w-4 text-white" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 pb-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-medium">{approval.approverName}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  approval.action === 'approve'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {approval.action === 'approve' ? '已通过' : '已驳回'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {new Date(approval.createdAt).toLocaleString('zh-CN')}
+                              </p>
+                              {approval.comment && (
+                                <div className="mt-2 text-sm bg-white rounded-lg px-3 py-2 border border-border/60 shadow-sm">
+                                  {approval.comment}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* 微信风格对话区 */}
+              {/* 交流历史区块 - 微信风格 */}
               {formEnableReply && (
-                <div className="flex-1 flex flex-col overflow-hidden bg-[#EDEDED]">
-                  {/* 对话区头部 */}
-                  <div className="flex items-center justify-center px-4 py-3 bg-[#EDEDED] border-b border-[#D9D9D9]">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium text-[#191919]">交流历史</h3>
-                      {replies.length > 0 && (
-                        <span className="rounded-full bg-[#FA5151] text-white px-1.5 py-0.5 text-xs min-w-[18px] text-center">
-                          {replies.length}
-                        </span>
-                      )}
+                <div className="flex-1 flex flex-col overflow-hidden bg-[#F5F5F5]">
+                  {/* 交流历史标题 */}
+                  <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/20 backdrop-blur">
+                      <MessageSquare className="h-4 w-4 text-white" />
                     </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-white">交流历史</h3>
+                      <p className="text-xs text-emerald-100">Communication</p>
+                    </div>
+                    {replies.length > 0 && (
+                      <span className="text-xs text-white bg-red-500 px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                        {replies.length}
+                      </span>
+                    )}
                   </div>
 
                   {/* 微信风格消息列表 */}

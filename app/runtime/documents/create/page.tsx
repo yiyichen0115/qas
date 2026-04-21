@@ -70,12 +70,10 @@ const DEALER_FIELD_MAPPINGS: Record<string, keyof Dealer> = {
 }
 
 // 检测字段是否是VIN字段
-  function isVinField(fieldName: string): boolean {
+function isVinField(fieldName: string): boolean {
   const vinFieldNames = ['vin', 'vin_code', 'vinCode', 'vehicle_vin']
-  const result = vinFieldNames.includes(fieldName.toLowerCase())
-  console.log('[v0] isVinField检查:', fieldName, '结果:', result)
-  return result
-  }
+  return vinFieldNames.includes(fieldName.toLowerCase())
+}
 
 // 检测字段是否是经销商编码字段
 function isDealerCodeField(fieldName: string): boolean {
@@ -622,35 +620,33 @@ function CreateDocumentContent() {
         </Dialog>
 
         {/* 表单内容 */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="mx-auto max-w-5xl">
-            {/* 基本信息 */}
-            <div className="mb-6">
+        <div className="flex-1 overflow-auto">
+          <div className="p-6">
+            {/* 基本信息卡片 */}
+            <div className="mb-6 rounded-lg border border-border bg-card p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="h-4 w-1 rounded-full bg-primary" />
-                <h3 className="text-sm font-medium text-foreground">基本信息</h3>
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h3 className="text-base font-semibold text-foreground">基本信息</h3>
               </div>
-              <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm text-muted-foreground shrink-0">单据类型</span>
-                  <span className="text-sm font-medium">{documentType.name}</span>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground">单据类型</span>
+                  <p className="text-sm font-medium">{documentType.name}</p>
                 </div>
                 {documentType.description && (
-                  <div className="flex items-baseline gap-2 sm:col-span-2 lg:col-span-3">
-                    <span className="text-sm text-muted-foreground shrink-0">说明</span>
-                    <span className="text-sm">{documentType.description}</span>
+                  <div className="space-y-1 col-span-2 sm:col-span-2 lg:col-span-3 xl:col-span-5">
+                    <span className="text-xs text-muted-foreground">说明</span>
+                    <p className="text-sm">{documentType.description}</p>
                   </div>
                 )}
               </div>
             </div>
-
-            <Separator className="my-6" />
             
-            {/* 表单内容 */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-4 w-1 rounded-full bg-primary" />
-                <h3 className="text-sm font-medium text-foreground">表单内容</h3>
+            {/* 表单内容卡片 */}
+            <div className="rounded-lg border border-border bg-card p-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h3 className="text-base font-semibold text-foreground">填写表单</h3>
               </div>
               {documentType.fields.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">此单据类型暂无字段，请在单据类型设计中添加字段</p>
@@ -699,18 +695,18 @@ function CreateDocumentContent() {
                       
                       {/* 字段网格 */}
                       {group.fields.length > 0 && (
-                        <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                           {group.fields.map((field) => {
                             const widthClass = field.width === 'full' 
-                              ? 'col-span-1 md:col-span-2 lg:col-span-3' 
+                              ? 'col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4' 
                               : field.width === 'half' 
-                                ? 'col-span-1 md:col-span-1 lg:col-span-1'
+                                ? 'col-span-1 lg:col-span-2 xl:col-span-2'
                                 : field.width === 'third'
                                   ? 'col-span-1'
-                                  : 'col-span-1 md:col-span-2 lg:col-span-3'
+                                  : 'col-span-1'
                             
                             const isFullWidth = field.type === 'textarea'
-                            const finalWidthClass = isFullWidth ? 'col-span-1 md:col-span-2 lg:col-span-3' : widthClass
+                            const finalWidthClass = isFullWidth ? 'col-span-1 sm:col-span-2 lg:col-span-3 xl:col-span-4' : widthClass
 
                             return (
                               <div key={field.id} className={`space-y-2 ${finalWidthClass}`}>
@@ -746,15 +742,15 @@ function CreateDocumentContent() {
                     </div>
                   ))
                 })()}
-            </div>
 
-            {workflow && (
-              <div className="mt-6 pt-4 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  提交后将进入「{workflow.name}」审批流程
-                </p>
-              </div>
-            )}
+              {workflow && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <p className="text-sm text-muted-foreground">
+                    提交后将进入「{workflow.name}」审批流程
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
