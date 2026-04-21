@@ -86,7 +86,17 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     setIsLoading(true)
     try {
       loadData()
-      setCurrentUser(userStorage.getCurrentUser())
+      // 获取当前用户，如果没有登录则使用默认管理员用户
+      let user = userStorage.getCurrentUser()
+      if (!user) {
+        // 获取默认管理员用户
+        const allUsers = userStorage.getAll()
+        user = allUsers.find(u => u.roles?.some(r => r === 'role_admin' || r === 'admin')) || allUsers[0] || null
+        if (user) {
+          userStorage.setCurrentUser(user)
+        }
+      }
+      setCurrentUser(user)
     } finally {
       setIsLoading(false)
     }
@@ -95,8 +105,10 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const loadData = () => {
     setError(null)
     const doc = documentStorage.getById(resolvedParams.id)
+
     if (doc) {
       setDocument(doc)
+
 
       // 优先尝试从单据类型存储获取表单配置
       const loadedDocType = documentTypeStorage.getById(doc.documentTypeId)
@@ -133,25 +145,68 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  // 获取当前有效用户（优先使用 state，如果没有则从 storage 获取）
+  const getEffectiveUser = () => {
+    if (currentUser) return currentUser
+    // 尝试从 storage 获取用户
+    let user = userStorage.getCurrentUser()
+    if (!user) {
+      // 获取默认管理员用户
+      const allUsers = userStorage.getAll()
+      user = allUsers.find(u => u.roles?.some(r => r === 'role_admin' || r === 'admin')) || allUsers[0] || null
+      if (user) {
+        userStorage.setCurrentUser(user)
+      }
+    }
+    return user
+  }
+  
+  // 获取用户的所有角色标识（包括角色ID和角色代码）
+  const getUserRoleIdentifiers = (): string[] => {
+    const user = getEffectiveUser()
+    if (!user) return []
+    const userRoles = user.roles || []
+    const allRoles = roleStorage.getAll()
+    
+    // 收集所有角色标识：角色ID、角色代码
+    const identifiers: string[] = []
+    for (const roleId of userRoles) {
+      identifiers.push(roleId) // 添加角色ID
+      const role = allRoles.find(r => r.id === roleId)
+      if (role?.code) {
+        identifiers.push(role.code) // 添加角色代码
+      }
+    }
+    return identifiers
+  }
+  
   // 检查用户是否有指定权限
   const hasPermission = (action: 'view' | 'edit' | 'approve' | 'reject' | 'transfer' | 'comment', fieldId?: string): boolean => {
-    if (!currentUser) return false
+    const user = getEffectiveUser()
+    if (!user) return false
     
-    // 获取用户的角色
-    const userRoles = currentUser.roles || []
+    // 获取用户的所有角色标识
+    const userRoleIdentifiers = getUserRoleIdentifiers()
+    
+    // 检查是否是管理员角色
+    const isAdmin = userRoleIdentifiers.some(r => r === 'role_admin' || r === 'admin')
+    
+    // 管理员拥有所有权限
+    if (isAdmin) {
+      return true
+    }
     
     // 如果没有工作流配置，使用默认权限逻辑
     if (!workflow || !currentNode) {
       // 创建者总是可以查看和评论
-      if (document?.createdBy === currentUser.id) {
+      if (document?.createdBy === user.id) {
         if (action === 'view' || action === 'comment') return true
         // 草稿状态下创建者可以编辑
         if (action === 'edit' && document?.status === 'draft') return true
       }
       
-      // 管理员和工程师角色有审批权限
-      const hasAdminRole = userRoles.some(r => r === 'admin' || r === 'engineer')
-      if (hasAdminRole) {
+      // 管理员角色有审批权限
+      if (isAdmin) {
         if (action === 'view' || action === 'comment') return true
         // 审批中状态可以审批/驳回
         if ((action === 'approve' || action === 'reject') && document?.status === 'pending') return true
@@ -169,7 +224,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     // 如果节点没有权限配置，使用默认逻辑
     if (nodePermissions.length === 0) {
       // 创建者总是可以查看和评论
-      if (document?.createdBy === currentUser.id) {
+      if (document?.createdBy === user.id) {
         if (action === 'view' || action === 'comment') return true
         if (action === 'edit' && document?.status === 'draft') return true
       }
@@ -183,7 +238,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         if (event.fromStatus?.includes(currentStatus || '')) {
           // 检查用户角色是否有权限执行该事件
           const eventPermissions = event.permissions || []
-          const hasEventPermission = eventPermissions.some(p => userRoles.includes(p))
+          const hasEventPermission = eventPermissions.some(p => userRoleIdentifiers.includes(p))
           
           if (hasEventPermission) {
             if (event.type === 'approve' && (action === 'approve' || action === 'reject')) return true
@@ -192,9 +247,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         }
       }
       
-      // 管理员和工程师有审批权限
-      const hasAdminRole = userRoles.some(r => r === 'admin' || r === 'engineer')
-      if (hasAdminRole && document?.status === 'pending') {
+      // 管理员角色有审批权限
+      if (isAdmin && document?.status === 'pending') {
         if (action === 'approve' || action === 'reject' || action === 'view' || action === 'comment') return true
       }
       
@@ -205,7 +259,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
 
     // 检查用户所属角色的权限
-    for (const roleId of userRoles) {
+    for (const roleId of userRoleIdentifiers) {
       const permission = nodePermissions.find(p => p.roleId === roleId)
       if (permission) {
         // 检查操作权限
@@ -278,16 +332,17 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const handleSubmitReply = async () => {
-    if (!newReply.trim() || !currentUser || !document) return
+    const user = getEffectiveUser()
+    if (!newReply.trim() || !user || !document) return
     
     setIsSubmitting(true)
     try {
       const reply: DocumentReply = {
         id: generateId(),
         documentId: document.id,
-        userId: currentUser.id,
-        userName: currentUser.name,
-        userAvatar: currentUser.avatar,
+        userId: user.id,
+        userName: user.name,
+        userAvatar: user.avatar,
         content: newReply.trim(),
         attachments: attachments.map(a => a.name),
         parentId: replyingTo || undefined,
@@ -306,7 +361,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const handleApprove = async () => {
-    if (!document || !currentUser) return
+    const user = getEffectiveUser()
+    if (!document || !user) return
     
     setIsSubmitting(true)
     try {
@@ -315,8 +371,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         documentId: document.id,
         nodeId: document.currentNodeId || '',
         nodeName: '审批',
-        approverId: currentUser.id,
-        approverName: currentUser.name,
+        approverId: user.id,
+        approverName: user.name,
         action: 'approve',
         comment: approvalComment,
         createdAt: new Date().toISOString(),
@@ -341,7 +397,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const handleReject = async () => {
-    if (!document || !currentUser) return
+    const user = getEffectiveUser()
+    if (!document || !user) return
     
     setIsSubmitting(true)
     try {
@@ -350,8 +407,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         documentId: document.id,
         nodeId: document.currentNodeId || '',
         nodeName: '审批',
-        approverId: currentUser.id,
-        approverName: currentUser.name,
+        approverId: user.id,
+        approverName: user.name,
         action: 'reject',
         comment: approvalComment,
         createdAt: new Date().toISOString(),
@@ -414,6 +471,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const canEdit = hasPermission('edit')
   const canView = hasPermission('view')
   const canComment = hasPermission('comment')
+  
+
 
   // 获取表单的enableReply属性，兼容FormConfig和DocumentType
   const formEnableReply = form?.enableReply ?? true
