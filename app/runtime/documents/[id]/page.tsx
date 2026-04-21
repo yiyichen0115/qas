@@ -553,23 +553,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 撤销
               </Button>
             )}
-            {document.status === 'pending' && (canApprove || canReject) && (
-              <div className="flex items-center gap-2 ml-4 pl-4 border-l border-border">
-                <span className="text-sm text-muted-foreground mr-2">审核操作:</span>
-                {canReject && (
-                  <Button variant="destructive" size="sm" onClick={() => setShowRejectDialog(true)}>
-                    <XCircle className="mr-2 h-4 w-4" />
-                    驳回
-                  </Button>
-                )}
-                {canApprove && (
-                  <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowApproveDialog(true)}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    通过
-                  </Button>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
