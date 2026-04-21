@@ -4,7 +4,7 @@ import { useState, useEffect, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
-  Clock, User, FileText, Loader2, CornerDownRight, Plus,
+  Clock, User, FileText, Loader2, Plus,
   Paperclip, X, Image as ImageIcon, File
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 
 import { MainLayout } from '@/components/layout/main-layout'
@@ -79,7 +78,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
-  const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
 
   useEffect(() => {
@@ -325,12 +323,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     setAttachments(prev => prev.filter(a => a.id !== id))
   }
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-  }
-
   const handleSubmitReply = async () => {
     const user = getEffectiveUser()
     if (!newReply.trim() || !user || !document) return
@@ -353,7 +345,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       setNewReply('')
       setReplyingTo(null)
       setAttachments([])
-      setShowCommentDialog(false)
       loadData()
     } finally {
       setIsSubmitting(false)
@@ -456,13 +447,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       documentStorage.save(updatedDoc)
       loadData()
     }
-  }
-
-  const openCommentDialog = (parentId?: string) => {
-    setReplyingTo(parentId || null)
-    setNewReply('')
-    setAttachments([])
-    setShowCommentDialog(true)
   }
 
   // 判断当前用户是否可以审批
@@ -824,210 +808,228 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 )}
               </div>
 
-              {/* 评论区 */}
+              {/* 微信风格对话区 */}
               {formEnableReply && (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <div className="flex-1 flex flex-col overflow-hidden bg-[#EDEDED]">
+                  {/* 对话区头部 */}
+                  <div className="flex items-center justify-center px-4 py-3 bg-[#EDEDED] border-b border-[#D9D9D9]">
                     <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-medium">评论</h3>
+                      <h3 className="text-sm font-medium text-[#191919]">交流历史</h3>
                       {replies.length > 0 && (
-                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                        <span className="rounded-full bg-[#FA5151] text-white px-1.5 py-0.5 text-xs min-w-[18px] text-center">
                           {replies.length}
                         </span>
                       )}
                     </div>
-                    {currentUser && canComment && (
-                      <Button size="sm" variant="outline" className="h-7" onClick={() => openCommentDialog()}>
-                        <Plus className="h-3 w-3 mr-1" />
-                        添加评论
-                      </Button>
-                    )}
                   </div>
 
-                  {/* 评论列表 */}
-                  <div className="flex-1 overflow-auto p-4">
-                    {topLevelReplies.length === 0 ? (
-                      <div className="py-6 text-center text-sm text-muted-foreground">
-                        暂无评论
+                  {/* 微信风格消息列表 */}
+                  <div className="flex-1 overflow-auto p-4 space-y-4">
+                    {replies.length === 0 ? (
+                      <div className="py-8 text-center text-sm text-[#B2B2B2]">
+                        暂无消息
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        {topLevelReplies.map((reply) => (
-                          <div key={reply.id} className="space-y-2">
-                            <div className="flex gap-2">
-                              <Avatar className="h-6 w-6 shrink-0">
-                                <AvatarFallback className="text-xs">{reply.userName[0]}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-medium">{reply.userName}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {new Date(reply.createdAt).toLocaleDateString()}
+                      <>
+                        {/* 按时间排序所有消息 */}
+                        {[...replies].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()).map((reply, index, arr) => {
+                          const isCurrentUser = reply.userId === getEffectiveUser()?.id
+                          const showTime = index === 0 || (new Date(reply.createdAt).getTime() - new Date(arr[index - 1].createdAt).getTime()) > 5 * 60 * 1000
+                          
+                          return (
+                            <div key={reply.id}>
+                              {/* 时间戳 */}
+                              {showTime && (
+                                <div className="flex justify-center mb-3">
+                                  <span className="text-xs text-[#B2B2B2] bg-[#DADADA] rounded px-2 py-0.5">
+                                    {new Date(reply.createdAt).toLocaleString('zh-CN', { 
+                                      month: '2-digit', 
+                                      day: '2-digit', 
+                                      hour: '2-digit', 
+                                      minute: '2-digit' 
+                                    })}
                                   </span>
                                 </div>
-                                <p className="text-sm mt-0.5">{reply.content}</p>
-                                {/* 显示附件 */}
-                                {reply.attachments && reply.attachments.length > 0 && (
-                                  <div className="mt-2 flex flex-wrap gap-1">
-                                    {reply.attachments.map((att, idx) => (
-                                      <span key={idx} className="inline-flex items-center gap-1 text-xs bg-muted rounded px-2 py-1">
-                                        <Paperclip className="h-3 w-3" />
-                                        {att}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-5 px-1 text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={() => openCommentDialog(reply.id)}
-                                >
-                                  回复
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* 子回复 */}
-                            {getRepliesForParent(reply.id).map((childReply) => (
-                              <div key={childReply.id} className="ml-8 flex gap-2">
-                                <Avatar className="h-5 w-5 shrink-0">
-                                  <AvatarFallback className="text-xs">{childReply.userName[0]}</AvatarFallback>
+                              )}
+                              
+                              {/* 消息气泡 */}
+                              <div className={`flex items-start gap-2 ${isCurrentUser ? 'flex-row-reverse' : ''}`}>
+                                {/* 头像 */}
+                                <Avatar className="h-10 w-10 shrink-0 rounded">
+                                  <AvatarFallback className="rounded bg-[#576B95] text-white text-sm">
+                                    {reply.userName[0]}
+                                  </AvatarFallback>
                                 </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-medium">{childReply.userName}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {new Date(childReply.createdAt).toLocaleDateString()}
-                                    </span>
+                                
+                                {/* 消息内容 */}
+                                <div className={`flex flex-col max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
+                                  {/* 用户名 */}
+                                  <span className="text-xs text-[#B2B2B2] mb-1">{reply.userName}</span>
+                                  
+                                  {/* 气泡 */}
+                                  <div 
+                                    className={`relative px-3 py-2 rounded text-sm break-words ${
+                                      isCurrentUser 
+                                        ? 'bg-[#95EC69] text-[#191919]' 
+                                        : 'bg-white text-[#191919]'
+                                    }`}
+                                    style={{
+                                      wordBreak: 'break-word'
+                                    }}
+                                  >
+                                    {/* 气泡箭头 */}
+                                    <div 
+                                      className={`absolute top-3 w-0 h-0 border-[6px] ${
+                                        isCurrentUser 
+                                          ? 'right-[-10px] border-l-[#95EC69] border-t-transparent border-r-transparent border-b-transparent' 
+                                          : 'left-[-10px] border-r-white border-t-transparent border-l-transparent border-b-transparent'
+                                      }`}
+                                    />
+                                    
+                                    {/* 引用回复 */}
+                                    {reply.parentId && (
+                                      <div className="text-xs text-[#576B95] mb-1 pb-1 border-b border-[#E5E5E5]">
+                                        回复 {replies.find(r => r.id === reply.parentId)?.userName}
+                                      </div>
+                                    )}
+                                    
+                                    <p 
+                                      className="leading-relaxed cursor-pointer" 
+                                      onClick={() => setReplyingTo(reply.id)}
+                                      title="点击回复"
+                                    >
+                                      {reply.content}
+                                    </p>
+                                    
+                                    {/* 附件 */}
+                                    {reply.attachments && reply.attachments.length > 0 && (
+                                      <div className="mt-2 pt-2 border-t border-[#E5E5E5] space-y-1">
+                                        {reply.attachments.map((att, idx) => (
+                                          <div 
+                                            key={idx} 
+                                            className="flex items-center gap-1.5 text-xs text-[#576B95] cursor-pointer hover:underline"
+                                          >
+                                            <Paperclip className="h-3 w-3" />
+                                            <span className="truncate">{att}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                  <p className="text-xs mt-0.5">{childReply.content}</p>
-                                  {/* 显示附件 */}
-                                  {childReply.attachments && childReply.attachments.length > 0 && (
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                      {childReply.attachments.map((att, idx) => (
-                                        <span key={idx} className="inline-flex items-center gap-1 text-xs bg-muted rounded px-1.5 py-0.5">
-                                          <Paperclip className="h-2.5 w-2.5" />
-                                          {att}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  )}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
+                            </div>
+                          )
+                        })}
+                      </>
                     )}
                   </div>
+                  
+                  {/* 微信风格输入区 */}
+                  {currentUser && canComment && (
+                    <div className="bg-[#F7F7F7] border-t border-[#D9D9D9] p-2">
+                      {/* 回复提示 */}
+                      {replyingTo && (
+                        <div className="flex items-center justify-between bg-[#E5E5E5] rounded px-2 py-1 mb-2 text-xs text-[#666]">
+                          <span>回复 {replies.find(r => r.id === replyingTo)?.userName}</span>
+                          <button 
+                            onClick={() => setReplyingTo(null)}
+                            className="text-[#999] hover:text-[#666]"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* 附件预览 */}
+                      {attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {attachments.map((file) => (
+                            <div 
+                              key={file.id} 
+                              className="flex items-center gap-1 bg-white rounded px-2 py-1 text-xs"
+                            >
+                              {file.type.startsWith('image/') ? (
+                                <ImageIcon className="h-3 w-3 text-[#576B95]" />
+                              ) : (
+                                <File className="h-3 w-3 text-[#576B95]" />
+                              )}
+                              <span className="truncate max-w-[80px]">{file.name}</span>
+                              <button 
+                                onClick={() => handleRemoveAttachment(file.id)}
+                                className="text-[#999] hover:text-[#666]"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* 输入框和按钮 */}
+                      <div className="flex items-end gap-2">
+                        {/* 附件按钮 */}
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded hover:bg-[#E5E5E5] text-[#666]"
+                        >
+                          <Plus className="h-5 w-5" />
+                        </button>
+                        
+                        {/* 输入框 */}
+                        <div className="flex-1 relative">
+                          <Textarea
+                            placeholder="输入消息..."
+                            value={newReply}
+                            onChange={(e) => setNewReply(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                if (newReply.trim()) {
+                                  handleSubmitReply()
+                                }
+                              }
+                            }}
+                            className="min-h-[36px] max-h-[120px] py-2 px-3 resize-none bg-white border-none rounded-lg text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                            rows={1}
+                          />
+                        </div>
+                        
+                        {/* 发送按钮 */}
+                        <Button
+                          onClick={handleSubmitReply}
+                          disabled={!newReply.trim() || isSubmitting}
+                          className={`shrink-0 h-8 px-4 rounded ${
+                            newReply.trim() 
+                              ? 'bg-[#07C160] hover:bg-[#06AD56] text-white' 
+                              : 'bg-[#E5E5E5] text-[#B2B2B2] cursor-not-allowed'
+                          }`}
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            '发送'
+                          )}
+                        </Button>
+                      </div>
+                      
+                      {/* 隐藏的文件输入 */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
-
-      {/* 评论对话框 */}
-      <Dialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>
-              {replyingTo ? `回复 ${replies.find(r => r.id === replyingTo)?.userName}` : '添加评论'}
-            </DialogTitle>
-            <DialogDescription>
-              输入您的评论内容，可以上传附件
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>评论内容</Label>
-              <Textarea
-                placeholder="输入评论内容..."
-                value={newReply}
-                onChange={(e) => setNewReply(e.target.value)}
-                rows={4}
-                className="resize-none"
-              />
-            </div>
-            
-            {/* 附件区域 */}
-            <div className="space-y-2">
-              <Label>附件</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-4">
-                {attachments.length > 0 ? (
-                  <div className="space-y-2">
-                    {attachments.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          {file.type.startsWith('image/') ? (
-                            <ImageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                          ) : (
-                            <File className="h-4 w-4 text-muted-foreground shrink-0" />
-                          )}
-                          <span className="text-sm truncate">{file.name}</span>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            ({formatFileSize(file.size)})
-                          </span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 shrink-0"
-                          onClick={() => handleRemoveAttachment(file.id)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      添加更多文件
-                    </Button>
-                  </div>
-                ) : (
-                  <div 
-                    className="text-center cursor-pointer"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Paperclip className="h-8 w-8 text-muted-foreground mx-auto" />
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      点击上传附件
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      支持图片、文档等格式
-                    </p>
-                  </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCommentDialog(false)}>
-              取消
-            </Button>
-            <Button onClick={handleSubmitReply} disabled={!newReply.trim() || isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <Send className="mr-2 h-4 w-4" />
-              发送
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* 通过对话框 */}
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
