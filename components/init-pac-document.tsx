@@ -39,7 +39,7 @@ const pacDocumentType: DocumentType = {
       type: 'text',
       label: '问题编号',
       name: 'problem_id',
-      required: true,
+      required: false,
       placeholder: '系统自动生成',
       disabled: true,
       width: 'third',
