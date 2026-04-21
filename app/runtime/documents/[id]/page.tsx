@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
-  Clock, User, FileText, Loader2, CornerDownRight 
+  Clock, User, FileText, Loader2, CornerDownRight, Plus,
+  Paperclip, X, Image as ImageIcon, File
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +22,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog'
 
 import { MainLayout } from '@/components/layout/main-layout'
@@ -38,12 +42,20 @@ function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
 }
 
-const statusConfig: Record<DocumentStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
   draft: { label: '草稿', variant: 'secondary', color: 'text-muted-foreground' },
   pending: { label: '审批中', variant: 'default', color: 'text-primary' },
   approved: { label: '已通过', variant: 'outline', color: 'text-green-600' },
   rejected: { label: '已驳回', variant: 'destructive', color: 'text-destructive' },
   cancelled: { label: '已取消', variant: 'secondary', color: 'text-muted-foreground' },
+}
+
+interface AttachmentFile {
+  id: string
+  name: string
+  size: number
+  type: string
+  url?: string
 }
 
 export default function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -62,9 +74,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [newReply, setNewReply] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [showCommentDialog, setShowCommentDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
 
   useEffect(() => {
@@ -78,20 +93,13 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   }, [resolvedParams.id])
 
   const loadData = () => {
-    console.log('Loading document with ID:', resolvedParams.id)
-    console.log('All documents:', documentStorage.getAll().map(d => ({ id: d.id, number: d.documentNumber })))
-    console.log('All forms:', formStorage.getAll().map(f => ({ id: f.id, name: f.name })))
-    console.log('All document types:', documentTypeStorage.getAll().map(dt => ({ id: dt.id, name: dt.name })))
-
     setError(null)
     const doc = documentStorage.getById(resolvedParams.id)
     if (doc) {
-      console.log('Found document:', doc)
       setDocument(doc)
 
       // 优先尝试从单据类型存储获取表单配置
       const loadedDocType = documentTypeStorage.getById(doc.documentTypeId)
-      console.log('Loaded document type for ID:', doc.documentTypeId, 'Type:', loadedDocType)
 
       if (loadedDocType) {
         setForm(loadedDocType)
@@ -100,7 +108,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       } else {
         // 如果单据类型不存在，尝试从表单存储获取
         const loadedForm = formStorage.getById(doc.formId)
-        console.log('Loaded form for ID:', doc.formId, 'Form:', loadedForm)
         if (loadedForm) {
           setForm(loadedForm)
           setReplies(replyStorage.getByDocumentId(doc.id))
@@ -122,7 +129,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         }
       }
     } else {
-      console.error('Document not found:', resolvedParams.id)
       setError(`文档不存在 (ID: ${resolvedParams.id})`)
     }
   }
@@ -241,6 +247,36 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     return { visible: true, editable: false }
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    const newAttachments: AttachmentFile[] = Array.from(files).map(file => ({
+      id: generateId(),
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      url: URL.createObjectURL(file)
+    }))
+
+    setAttachments(prev => [...prev, ...newAttachments])
+    
+    // 重置 input 以便可以重新选择同一文件
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id))
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
   const handleSubmitReply = async () => {
     if (!newReply.trim() || !currentUser || !document) return
     
@@ -253,6 +289,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         userName: currentUser.name,
         userAvatar: currentUser.avatar,
         content: newReply.trim(),
+        attachments: attachments.map(a => a.name),
         parentId: replyingTo || undefined,
         createdAt: new Date().toISOString(),
       }
@@ -260,6 +297,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       replyStorage.save(reply)
       setNewReply('')
       setReplyingTo(null)
+      setAttachments([])
+      setShowCommentDialog(false)
       loadData()
     } finally {
       setIsSubmitting(false)
@@ -362,6 +401,13 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  const openCommentDialog = (parentId?: string) => {
+    setReplyingTo(parentId || null)
+    setNewReply('')
+    setAttachments([])
+    setShowCommentDialog(true)
+  }
+
   // 判断当前用户是否可以审批
   const canApprove = hasPermission('approve')
   const canReject = hasPermission('reject')
@@ -420,7 +466,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     )
   }
 
-  const status = statusConfig[document.status]
+  const status = statusConfig[document.status] || statusConfig.draft
 
   // 按层级组织回复
   const topLevelReplies = replies.filter(r => !r.parentId)
@@ -464,20 +510,51 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 撤销
               </Button>
             )}
-            {canReject && (
-              <Button variant="outline" onClick={() => setShowRejectDialog(true)}>
-                <XCircle className="mr-2 h-4 w-4" />
-                驳回
-              </Button>
-            )}
-            {canApprove && (
-              <Button onClick={() => setShowApproveDialog(true)}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                通过
-              </Button>
+            {document.status === 'pending' && (canApprove || canReject) && (
+              <div className="flex items-center gap-2 ml-4 pl-4 border-l border-border">
+                <span className="text-sm text-muted-foreground mr-2">审核操作:</span>
+                {canReject && (
+                  <Button variant="destructive" size="sm" onClick={() => setShowRejectDialog(true)}>
+                    <XCircle className="mr-2 h-4 w-4" />
+                    驳回
+                  </Button>
+                )}
+                {canApprove && (
+                  <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowApproveDialog(true)}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    通过
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>
+
+        {/* 审批中状态时显示醒目的审核提示 */}
+        {document.status === 'pending' && (canApprove || canReject) && (
+          <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-amber-600" />
+                <span className="text-amber-800 font-medium">此单据正在等待您的审核</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {canReject && (
+                  <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => setShowRejectDialog(true)}>
+                    <XCircle className="mr-1.5 h-4 w-4" />
+                    驳回
+                  </Button>
+                )}
+                {canApprove && (
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => setShowApproveDialog(true)}>
+                    <CheckCircle className="mr-1.5 h-4 w-4" />
+                    通过审核
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 内容区 - 左右两栏布局 */}
         <div className="flex-1 overflow-auto">
@@ -554,49 +631,58 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   return groups.map((group, groupIndex) => (
                     <div key={groupIndex} className={groupIndex > 0 ? 'mt-6' : ''}>
                       {group.divider && (
-                        <div className="relative pt-5 mb-4">
-                          <span className="absolute left-0 top-0 text-sm font-medium text-muted-foreground">
-                            {group.divider.label || '分割线'}
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="h-3 w-0.5 rounded-full bg-muted-foreground/50" />
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            {group.divider.label}
                           </span>
-                          <div className="h-px w-full bg-border" />
+                          <div className="flex-1 h-px bg-border" />
                         </div>
                       )}
-                      
                       {group.fields.length > 0 && (
                         <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                           {group.fields.map((field) => {
                             const value = document.formData[field.name]
                             const fieldPerm = getFieldPermission(field.id)
-                            let displayValue = '-'
-
+                            
+                            // 格式化显示值
+                            let displayValue: React.ReactNode = '-'
                             if (value !== undefined && value !== null && value !== '') {
-                              if (Array.isArray(value)) {
-                                const labels = value.map(v => {
-                                  const opt = field.options?.find(o => o.value === v)
-                                  return opt?.label || v
-                                })
-                                displayValue = labels.join(', ')
-                              } else if (typeof value === 'boolean') {
+                              if (field.type === 'select' || field.type === 'radio') {
+                                const option = field.options?.find(o => o.value === value)
+                                displayValue = option?.label || String(value)
+                              } else if (field.type === 'checkbox') {
+                                const values = Array.isArray(value) ? value : [value]
+                                displayValue = values.map(v => {
+                                  const option = field.options?.find(o => o.value === v)
+                                  return option?.label || String(v)
+                                }).join(', ')
+                              } else if (field.type === 'switch') {
                                 displayValue = value ? '是' : '否'
-                              } else if (field.type === 'select' || field.type === 'radio') {
-                                const opt = field.options?.find(o => o.value === value)
-                                displayValue = opt?.label || String(value)
+                              } else if (field.type === 'date' || field.type === 'datetime') {
+                                displayValue = new Date(String(value)).toLocaleString()
+                              } else if (field.type === 'file') {
+                                const files = Array.isArray(value) ? value : [value]
+                                displayValue = files.map((f, i) => (
+                                  <span key={i} className="inline-flex items-center gap-1 text-primary">
+                                    <FileText className="h-3 w-3" />
+                                    {typeof f === 'string' ? f : (f as { name?: string }).name || '文件'}
+                                  </span>
+                                ))
                               } else {
                                 displayValue = String(value)
                               }
                             }
-
+                            
+                            // 获取字段宽度
                             const getWidthClass = () => {
-                              if (field.type === 'textarea') return 'sm:col-span-2 lg:col-span-3'
-                              switch (field.width) {
-                                case 'full': return 'sm:col-span-2 lg:col-span-3'
-                                case 'half': return 'lg:col-span-1'
-                                case 'third': return ''
-                                default: return ''
-                              }
+                              if (field.width === 'full') return 'sm:col-span-2 lg:col-span-3'
+                              if (field.width === 'half') return 'lg:col-span-1'
+                              return ''
                             }
-
-                            if (field.type === 'textarea') {
+                            
+                            // 多行文本特殊处理
+                            if (field.type === 'textarea' || field.type === 'richtext') {
                               return (
                                 <div key={field.id} className={`${getWidthClass()}`}>
                                   <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
@@ -682,13 +768,21 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
               {/* 评论区 */}
               {formEnableReply && (
                 <div className="flex-1 flex flex-col overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="text-sm font-medium">评论</h3>
-                    {replies.length > 0 && (
-                      <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
-                        {replies.length}
-                      </span>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium">评论</h3>
+                      {replies.length > 0 && (
+                        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                          {replies.length}
+                        </span>
+                      )}
+                    </div>
+                    {currentUser && canComment && (
+                      <Button size="sm" variant="outline" className="h-7" onClick={() => openCommentDialog()}>
+                        <Plus className="h-3 w-3 mr-1" />
+                        添加评论
+                      </Button>
                     )}
                   </div>
 
@@ -714,11 +808,22 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                   </span>
                                 </div>
                                 <p className="text-sm mt-0.5">{reply.content}</p>
+                                {/* 显示附件 */}
+                                {reply.attachments && reply.attachments.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-1">
+                                    {reply.attachments.map((att, idx) => (
+                                      <span key={idx} className="inline-flex items-center gap-1 text-xs bg-muted rounded px-2 py-1">
+                                        <Paperclip className="h-3 w-3" />
+                                        {att}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                                 <Button 
                                   variant="ghost" 
                                   size="sm" 
                                   className="h-5 px-1 text-xs text-muted-foreground hover:text-foreground"
-                                  onClick={() => setReplyingTo(reply.id)}
+                                  onClick={() => openCommentDialog(reply.id)}
                                 >
                                   回复
                                 </Button>
@@ -739,6 +844,17 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                     </span>
                                   </div>
                                   <p className="text-xs mt-0.5">{childReply.content}</p>
+                                  {/* 显示附件 */}
+                                  {childReply.attachments && childReply.attachments.length > 0 && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {childReply.attachments.map((att, idx) => (
+                                        <span key={idx} className="inline-flex items-center gap-1 text-xs bg-muted rounded px-1.5 py-0.5">
+                                          <Paperclip className="h-2.5 w-2.5" />
+                                          {att}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -747,56 +863,112 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       </div>
                     )}
                   </div>
-
-                  {/* 评论输入框 */}
-                  {currentUser && canComment && (
-                    <div className="p-4 border-t border-border bg-card">
-                      {replyingTo && (
-                        <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <CornerDownRight className="h-3 w-3" />
-                          <span>回复 {replies.find(r => r.id === replyingTo)?.userName}</span>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-4 px-1 text-xs"
-                            onClick={() => setReplyingTo(null)}
-                          >
-                            取消
-                          </Button>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <Textarea
-                          placeholder="输入评论..."
-                          value={newReply}
-                          onChange={(e) => setNewReply(e.target.value)}
-                          rows={2}
-                          className="text-sm resize-none"
-                        />
-                      </div>
-                      <div className="flex justify-end mt-2">
-                        <Button 
-                          size="sm" 
-                          onClick={handleSubmitReply}
-                          disabled={!newReply.trim() || isSubmitting}
-                          className="h-7 text-xs"
-                        >
-                          {isSubmitting ? (
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          ) : (
-                            <Send className="mr-1 h-3 w-3" />
-                          )}
-                          发送
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* 评论对话框 */}
+      <Dialog open={showCommentDialog} onOpenChange={setShowCommentDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              {replyingTo ? `回复 ${replies.find(r => r.id === replyingTo)?.userName}` : '添加评论'}
+            </DialogTitle>
+            <DialogDescription>
+              输入您的评论内容，可以上传附件
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>评论内容</Label>
+              <Textarea
+                placeholder="输入评论内容..."
+                value={newReply}
+                onChange={(e) => setNewReply(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            
+            {/* 附件区域 */}
+            <div className="space-y-2">
+              <Label>附件</Label>
+              <div className="border-2 border-dashed border-border rounded-lg p-4">
+                {attachments.length > 0 ? (
+                  <div className="space-y-2">
+                    {attachments.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between bg-muted rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {file.type.startsWith('image/') ? (
+                            <ImageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                          ) : (
+                            <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                          )}
+                          <span className="text-sm truncate">{file.name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            ({formatFileSize(file.size)})
+                          </span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 shrink-0"
+                          onClick={() => handleRemoveAttachment(file.id)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      添加更多文件
+                    </Button>
+                  </div>
+                ) : (
+                  <div 
+                    className="text-center cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className="h-8 w-8 text-muted-foreground mx-auto" />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      点击上传附件
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      支持图片、文档等格式
+                    </p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCommentDialog(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSubmitReply} disabled={!newReply.trim() || isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Send className="mr-2 h-4 w-4" />
+              发送
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 通过对话框 */}
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
@@ -806,7 +978,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             <DialogDescription>确认通过此单据的审批</DialogDescription>
           </DialogHeader>
           <Textarea
-            placeholder="输入审批意��（可选）"
+            placeholder="输入审批意见（可选）"
             value={approvalComment}
             onChange={(e) => setApprovalComment(e.target.value)}
             rows={3}
@@ -815,7 +987,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             <Button variant="outline" onClick={() => setShowApproveDialog(false)}>
               取消
             </Button>
-            <Button onClick={handleApprove} disabled={isSubmitting}>
+            <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               确认通过
             </Button>

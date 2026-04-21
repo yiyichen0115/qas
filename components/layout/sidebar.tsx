@@ -28,12 +28,9 @@ const navItems: NavItem[] = [
     icon: <LayoutDashboard className="h-5 w-5" />,
   },
   {
-    title: '运行中心',
+    title: '单据中心',
+    href: '/runtime/documents',
     icon: <PlayCircle className="h-5 w-5" />,
-    children: [
-      { title: '表单中心', href: '/runtime/forms' },
-      { title: '单据管理', href: '/runtime/documents' },
-    ],
   },
   {
     title: '设计中心',
@@ -61,7 +58,7 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const [expandedItems, setExpandedItems] = useState<string[]>(['运行中心', '设计中心', '系统管理'])
+  const [expandedItems, setExpandedItems] = useState<string[]>(['设计中心', '系统管理'])
 
   const toggleExpand = (title: string) => {
     setExpandedItems((prev) =>
