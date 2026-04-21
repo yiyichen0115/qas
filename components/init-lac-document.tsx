@@ -317,12 +317,12 @@ const lacDocumentType: DocumentType = {
     {
       id: 'part_drawing_no',
       type: 'text',
-      label: '配件图号',
+      label: '配件编码',
       name: 'part_drawing_no',
       required: true,
-      placeholder: '请输入配件图号',
+      placeholder: '请输入配件编码',
       width: 'third',
-      // 配件图号联动配置
+      // 配件编码联动配置
       linkage: {
         sourceField: 'part_drawing_no',
         sourceType: 'custom',
