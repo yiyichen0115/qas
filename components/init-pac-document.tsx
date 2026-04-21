@@ -300,8 +300,16 @@ const pacDocumentType: DocumentType = {
       label: '配件编号',
       name: 'part_number',
       required: false,
-      placeholder: '请输入配件编号',
+      placeholder: '请输入配件编号进行查询',
       width: 'half',
+      // 配件编号联动配置
+      linkage: {
+        sourceField: 'part_number',
+        sourceType: 'custom',
+        targetMappings: [
+          { targetField: 'part_name', sourceProperty: 'partName' },
+        ],
+      },
     },
     {
       id: 'part_name',
@@ -309,8 +317,9 @@ const pacDocumentType: DocumentType = {
       label: '配件名称',
       name: 'part_name',
       required: false,
-      placeholder: '配件名称',
+      placeholder: '配件名称（自动带出）',
       width: 'half',
+      disabled: true, // 由联动自动填充
     },
     
     // 订单信息区
@@ -328,8 +337,17 @@ const pacDocumentType: DocumentType = {
       label: '订单号',
       name: 'order_number',
       required: false,
-      placeholder: '请输入订单号',
+      placeholder: '请输入订单号进行查询',
       width: 'third',
+      // 订单号联动配置
+      linkage: {
+        sourceField: 'order_number',
+        sourceType: 'custom',
+        targetMappings: [
+          { targetField: 'delivery_number', sourceProperty: 'deliveryNumber' },
+          { targetField: 'warehouse', sourceProperty: 'warehouse' },
+        ],
+      },
     },
     {
       id: 'delivery_number',
@@ -337,8 +355,9 @@ const pacDocumentType: DocumentType = {
       label: '发货号',
       name: 'delivery_number',
       required: false,
-      placeholder: '请输入发货号',
+      placeholder: '发货号（自动带出）',
       width: 'third',
+      disabled: true, // 由联动自动填充
     },
     {
       id: 'warehouse',
@@ -346,8 +365,9 @@ const pacDocumentType: DocumentType = {
       label: '发货库',
       name: 'warehouse',
       required: false,
-      placeholder: '发货库',
+      placeholder: '发货库（自动带出）',
       width: 'third',
+      disabled: true, // 由联动自动填充
     },
   ] as FormField[],
   
@@ -607,7 +627,7 @@ const pacWorkflowEdges: WorkflowEdge[] = [
   { id: 'edge_9', source: 'node_reply', target: 'node_process', label: '继续处理' },
 ]
 
-// PAC工作流事件配置
+// PAC工作流事��配置
 const pacFlowEvents: FlowEvent[] = [
   // 提交事件
   {

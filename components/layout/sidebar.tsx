@@ -50,6 +50,7 @@ const navItems: NavItem[] = [
       { title: '角色管理', href: '/admin/roles' },
       { title: '权限配置', href: '/admin/permissions' },
       { title: '基础数据', href: '/admin/basedata' },
+      { title: '基础库管理', href: '/admin/master-data' },
       { title: '资料管理', href: '/admin/knowledge' },
       { title: 'AI规则配置', href: '/admin/ai-rules' },
     ],

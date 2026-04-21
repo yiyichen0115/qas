@@ -26,9 +26,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MainLayout } from '@/components/layout/main-layout'
-import { documentTypeStorage, documentStorage, sequenceStorage, userStorage, workflowStorage } from '@/lib/storage'
+import { documentTypeStorage, documentStorage, sequenceStorage, userStorage, workflowStorage, partStorage, orderStorage, vehicleStorage } from '@/lib/storage'
 import { getVehicleByVin, getDealerByCode, type VehicleInfo, type Dealer } from '@/lib/base-data'
-import type { DocumentType, FormField, Document, WorkflowConfig } from '@/lib/types'
+import type { DocumentType, FormField, Document, WorkflowConfig, Part, Order, Vehicle } from '@/lib/types'
 
 function generateId() {
   return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -81,13 +81,54 @@ function isDealerCodeField(fieldName: string): boolean {
   return dealerCodeNames.includes(fieldName.toLowerCase())
 }
 
+// 检测字段是否是配件编号字段
+function isPartNumberField(fieldName: string): boolean {
+  const partNumberNames = ['part_number', 'partNumber', 'part_code', 'partCode']
+  return partNumberNames.includes(fieldName.toLowerCase())
+}
+
+// 检测字段是否是订单号字段
+function isOrderNumberField(fieldName: string): boolean {
+  const orderNumberNames = ['order_number', 'orderNumber', 'order_no', 'orderNo']
+  return orderNumberNames.includes(fieldName.toLowerCase())
+}
+
+// 配件联动字段映射
+const PART_FIELD_MAPPINGS: Record<string, keyof Part> = {
+  'part_name': 'partName',
+  'partName': 'partName',
+  'part_category': 'category',
+  'category': 'category',
+  'specification': 'specification',
+  'unit': 'unit',
+  'price': 'price',
+  'supplier': 'supplier',
+}
+
+// 订单联动字段映射
+const ORDER_FIELD_MAPPINGS: Record<string, keyof Order> = {
+  'delivery_number': 'deliveryNumber',
+  'deliveryNumber': 'deliveryNumber',
+  'warehouse': 'warehouse',
+  'dealer_code': 'dealerCode',
+  'dealerCode': 'dealerCode',
+  'dealer_name': 'dealerName',
+  'dealerName': 'dealerName',
+  'order_date': 'orderDate',
+  'orderDate': 'orderDate',
+  'delivery_date': 'deliveryDate',
+  'deliveryDate': 'deliveryDate',
+}
+
 interface FieldRendererProps {
   field: FormField
   value: unknown
   onChange: (value: unknown) => void
   onVinChange?: (vin: string, vehicleInfo: VehicleInfo | undefined) => void
   onDealerCodeChange?: (code: string, dealer: Dealer | undefined) => void
-  linkedInfo?: { type: 'vin' | 'dealer', found: boolean }
+  onPartNumberChange?: (partNumber: string, part: Part | undefined) => void
+  onOrderNumberChange?: (orderNumber: string, order: Order | undefined) => void
+  linkedInfo?: { type: 'vin' | 'dealer' | 'part' | 'order', found: boolean }
 }
 
 function FieldRenderer({ 
@@ -96,6 +137,8 @@ function FieldRenderer({
   onChange,
   onVinChange,
   onDealerCodeChange,
+  onPartNumberChange,
+  onOrderNumberChange,
   linkedInfo,
 }: FieldRendererProps) {
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,9 +147,7 @@ function FieldRenderer({
     
     // VIN联动
     if (isVinField(field.name) && onVinChange) {
-      console.log('[v0] VIN输入:', newValue, '长度:', newValue.length)
       const vehicleInfo = newValue.length >= 17 ? getVehicleByVin(newValue) : undefined
-      console.log('[v0] VIN查询结果:', vehicleInfo)
       onVinChange(newValue, vehicleInfo)
     }
     
@@ -114,6 +155,18 @@ function FieldRenderer({
     if (isDealerCodeField(field.name) && onDealerCodeChange) {
       const dealer = newValue.length > 0 ? getDealerByCode(newValue) : undefined
       onDealerCodeChange(newValue, dealer)
+    }
+    
+    // 配件编号联动
+    if (isPartNumberField(field.name) && onPartNumberChange) {
+      const part = newValue.length > 0 ? partStorage.getByPartNumber(newValue) : undefined
+      onPartNumberChange(newValue, part)
+    }
+    
+    // 订单号联动
+    if (isOrderNumberField(field.name) && onOrderNumberChange) {
+      const order = newValue.length > 0 ? orderStorage.getByOrderNumber(newValue) : undefined
+      onOrderNumberChange(newValue, order)
     }
   }
 
@@ -288,6 +341,8 @@ function CreateDocumentContent() {
   const [documentNumber, setDocumentNumber] = useState('')
   const [vinInfo, setVinInfo] = useState<VehicleInfo | undefined>()
   const [dealerInfo, setDealerInfo] = useState<Dealer | undefined>()
+  const [partInfo, setPartInfo] = useState<Part | undefined>()
+  const [orderInfo, setOrderInfo] = useState<Order | undefined>()
   const [showVinDialog, setShowVinDialog] = useState(false)
   const [showDealerDialog, setShowDealerDialog] = useState(false)
 
@@ -387,6 +442,52 @@ function CreateDocumentContent() {
       }
     }
   }, [documentType, dealerInfo])
+
+  // 配件编号联动处理
+  const handlePartNumberChange = useCallback((partNumber: string, part: Part | undefined) => {
+    setPartInfo(part)
+    
+    if (part && documentType) {
+      const updates: Record<string, unknown> = {}
+      
+      documentType.fields.forEach(field => {
+        if (PART_FIELD_MAPPINGS[field.name]) {
+          const partProp = PART_FIELD_MAPPINGS[field.name]
+          const value = part[partProp]
+          if (value !== undefined) {
+            updates[field.name] = value
+          }
+        }
+      })
+      
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }))
+      }
+    }
+  }, [documentType])
+
+  // 订单号联动处理
+  const handleOrderNumberChange = useCallback((orderNumber: string, order: Order | undefined) => {
+    setOrderInfo(order)
+    
+    if (order && documentType) {
+      const updates: Record<string, unknown> = {}
+      
+      documentType.fields.forEach(field => {
+        if (ORDER_FIELD_MAPPINGS[field.name]) {
+          const orderProp = ORDER_FIELD_MAPPINGS[field.name]
+          const value = order[orderProp]
+          if (value !== undefined) {
+            updates[field.name] = value
+          }
+        }
+      })
+      
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }))
+      }
+    }
+  }, [documentType])
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -490,13 +591,19 @@ function CreateDocumentContent() {
     }
   }
 
-  // 获取字段的联动信息
-  const getLinkedInfo = (field: FormField): { type: 'vin' | 'dealer', found: boolean } | undefined => {
+// 获取字段的联动信息
+  const getLinkedInfo = (field: FormField): { type: 'vin' | 'dealer' | 'part' | 'order', found: boolean } | undefined => {
     if (isVinField(field.name)) {
       return { type: 'vin', found: !!vinInfo }
     }
     if (isDealerCodeField(field.name)) {
       return { type: 'dealer', found: !!dealerInfo }
+    }
+    if (isPartNumberField(field.name)) {
+      return { type: 'part', found: !!partInfo }
+    }
+    if (isOrderNumberField(field.name)) {
+      return { type: 'order', found: !!orderInfo }
     }
     return undefined
   }
@@ -726,6 +833,8 @@ function CreateDocumentContent() {
                                   onChange={(value) => handleFieldChange(field.name, value)}
                                   onVinChange={handleVinChange}
                                   onDealerCodeChange={handleDealerCodeChange}
+                                  onPartNumberChange={handlePartNumberChange}
+                                  onOrderNumberChange={handleOrderNumberChange}
                                   linkedInfo={getLinkedInfo(field)}
                                 />
                                 {field.description && (
