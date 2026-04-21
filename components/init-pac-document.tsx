@@ -268,12 +268,12 @@ const pacDocumentType: DocumentType = {
       },
     },
     {
-      id: 'vehicle_model',
+      id: 'vehicle_platform',
       type: 'text',
-      label: '车型',
-      name: 'vehicle_model',
+      label: '车型平台',
+      name: 'vehicle_platform',
       required: false,
-      placeholder: '车型',
+      placeholder: '车型平台',
       width: 'third',
     },
     {
