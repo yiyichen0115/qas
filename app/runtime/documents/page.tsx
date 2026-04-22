@@ -6,7 +6,7 @@ import {
   FileText, Search, Plus, Eye, Edit2, Trash2, 
   Clock, CheckCircle, XCircle, AlertCircle, Loader2,
   FolderOpen, Users, Wallet, Briefcase, Package, Settings,
-  LayoutGrid, List, Filter
+  LayoutGrid, List
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,11 +33,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import { MainLayout } from '@/components/layout/main-layout'
 import { PageHeader } from '@/components/layout/page-header'
-import { documentStorage, documentTypeStorage, userStorage, categoryStorage } from '@/lib/storage'
-import type { Document, DocumentType, DocumentStatus } from '@/lib/types'
+import { documentStorage, documentTypeStorage, userStorage } from '@/lib/storage'
+import type { Document, DocumentType } from '@/lib/types'
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ComponentType<{ className?: string }> }> = {
   draft: { label: '草稿', variant: 'secondary', icon: Edit2 },
@@ -72,7 +72,7 @@ function DocumentsContent() {
   const [selectedDocTypeId, setSelectedDocTypeId] = useState<string>(docTypeIdParam || 'all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards')
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>(docTypeIdParam ? 'list' : 'cards')
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof userStorage.getCurrentUser>>(null)
 
   useEffect(() => {
@@ -151,14 +151,9 @@ function DocumentsContent() {
     }
   }
 
-  const handleSelectDocType = (docTypeId: string) => {
-    setSelectedDocTypeId(docTypeId)
-    setViewMode('list')
-  }
-
   const handleViewDocuments = (docTypeId: string) => {
-    setSelectedDocTypeId(docTypeId)
-    setViewMode('list')
+    // 跳转到单据类型专属列表页面
+    router.push(`/runtime/documents/type/${docTypeId}`)
   }
 
   return (
@@ -262,7 +257,11 @@ function DocumentsContent() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {filteredDocumentTypes.map((docType) => (
-                    <Card key={docType.id} className="group transition-all hover:shadow-md">
+                    <Card 
+                      key={docType.id} 
+                      className="group transition-all hover:shadow-md cursor-pointer"
+                      onClick={() => handleViewDocuments(docType.id)}
+                    >
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -293,7 +292,7 @@ function DocumentsContent() {
                           <Button 
                             size="sm" 
                             className="flex-1"
-                            onClick={() => handleCreateNew(docType.id)}
+                            onClick={(e) => { e.stopPropagation(); handleCreateNew(docType.id) }}
                           >
                             <Plus className="mr-1.5 h-4 w-4" />
                             新建单据
@@ -301,7 +300,7 @@ function DocumentsContent() {
                           <Button 
                             size="sm" 
                             variant="outline"
-                            onClick={() => handleViewDocuments(docType.id)}
+                            onClick={(e) => { e.stopPropagation(); handleViewDocuments(docType.id) }}
                           >
                             查看
                           </Button>
