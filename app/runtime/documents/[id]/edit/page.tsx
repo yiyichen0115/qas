@@ -35,6 +35,7 @@ import type { FormConfig, FormField, Document, WorkflowConfig, WorkflowNode, Nod
 const VIN_FIELD_MAPPINGS: Record<string, keyof VehicleInfo> = {
   'vehicle_code': 'vehicleCode',
   'vehicleCode': 'vehicleCode',
+  'vehicle_model': 'platformName', // 车型映射到平台名称
   'platform_code': 'platformCode',
   'platformCode': 'platformCode',
   'platform_name': 'platformName',
