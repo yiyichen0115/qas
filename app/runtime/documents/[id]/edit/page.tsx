@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MainLayout } from '@/components/layout/main-layout'
-import { formStorage, documentStorage, workflowStorage, userStorage } from '@/lib/storage'
+import { formStorage, documentStorage, workflowStorage, userStorage, documentTypeStorage } from '@/lib/storage'
 import { getVehicleByVin, getDealerByCode, type VehicleInfo, type Dealer } from '@/lib/base-data'
 import type { FormConfig, FormField, Document, WorkflowConfig, WorkflowNode, NodePermission } from '@/lib/types'
 
@@ -278,6 +278,8 @@ function EditDocumentContent() {
   const [formData, setFormData] = useState<Record<string, unknown>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [vinInfo, setVinInfo] = useState<VehicleInfo | undefined>()
   const [dealerInfo, setDealerInfo] = useState<Dealer | undefined>()
   const [showVinDialog, setShowVinDialog] = useState(false)
@@ -287,43 +289,69 @@ function EditDocumentContent() {
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof userStorage.getCurrentUser>>(null)
 
   useEffect(() => {
+    setIsLoading(true)
+    setLoadError(null)
     setCurrentUser(userStorage.getCurrentUser())
+    
     if (documentId) {
       const loadedDoc = documentStorage.getById(documentId)
-      if (loadedDoc) {
-        setDocument(loadedDoc)
-        setFormData(loadedDoc.formData || {})
-        
-        const loadedForm = formStorage.getById(loadedDoc.formId)
-        if (loadedForm) {
-          setForm(loadedForm)
-        }
-
-        // 加载工作流配置
-        if (loadedDoc.workflowId) {
-          const workflows = workflowStorage.getAll()
-          const foundWorkflow = workflows.find(w => w.id === loadedDoc.workflowId)
-          if (foundWorkflow) {
-            setWorkflow(foundWorkflow)
-            // 找到当前节点
-            const currentNode = foundWorkflow.nodes.find(n => n.id === loadedDoc.currentNodeId)
-            setCurrentNode(currentNode || null)
-          }
-        }
-
-        // 初始化VIN和经销商联动状态
-        if (loadedDoc.formData) {
-          const vinValue = Object.entries(loadedDoc.formData).find(([key]) => isVinField(key))?.[1] as string
-          if (vinValue && vinValue.length >= 17) {
-            setVinInfo(getVehicleByVin(vinValue))
-          }
-          
-          const dealerCodeValue = Object.entries(loadedDoc.formData).find(([key]) => isDealerCodeField(key))?.[1] as string
-          if (dealerCodeValue) {
-            setDealerInfo(getDealerByCode(dealerCodeValue))
-          }
+      if (!loadedDoc) {
+        setLoadError('单据不存在')
+        setIsLoading(false)
+        return
+      }
+      
+      setDocument(loadedDoc)
+      setFormData(loadedDoc.formData || {})
+      
+      // 先从 formStorage 查找，如果没有再从 documentTypeStorage 查找
+      let loadedForm = formStorage.getById(loadedDoc.formId)
+      if (!loadedForm) {
+        // 尝试从 documentTypeStorage 获取（支持 LAC 等单据类型）
+        const docType = documentTypeStorage.getById(loadedDoc.formId) || 
+                        documentTypeStorage.getById(loadedDoc.documentTypeId || '')
+        if (docType) {
+          loadedForm = docType as unknown as FormConfig
         }
       }
+      
+      if (!loadedForm) {
+        setLoadError(`找不到表单配置: ${loadedDoc.formId}`)
+        setIsLoading(false)
+        return
+      }
+      
+      setForm(loadedForm)
+
+      // 加载工作流配置
+      if (loadedDoc.workflowId) {
+        const workflows = workflowStorage.getAll()
+        const foundWorkflow = workflows.find(w => w.id === loadedDoc.workflowId)
+        if (foundWorkflow) {
+          setWorkflow(foundWorkflow)
+          // 找到当前节点
+          const currentNode = foundWorkflow.nodes.find(n => n.id === loadedDoc.currentNodeId)
+          setCurrentNode(currentNode || null)
+        }
+      }
+
+      // 初始化VIN和经销商联动状态
+      if (loadedDoc.formData) {
+        const vinValue = Object.entries(loadedDoc.formData).find(([key]) => isVinField(key))?.[1] as string
+        if (vinValue && vinValue.length >= 17) {
+          setVinInfo(getVehicleByVin(vinValue))
+        }
+        
+        const dealerCodeValue = Object.entries(loadedDoc.formData).find(([key]) => isDealerCodeField(key))?.[1] as string
+        if (dealerCodeValue) {
+          setDealerInfo(getDealerByCode(dealerCodeValue))
+        }
+      }
+      
+      setIsLoading(false)
+    } else {
+      setLoadError('单据ID不存在')
+      setIsLoading(false)
     }
   }, [documentId])
 
@@ -511,11 +539,25 @@ function EditDocumentContent() {
     return undefined
   }
 
-  if (!document || !form) {
+  if (isLoading) {
     return (
       <MainLayout>
         <div className="flex h-full items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (loadError || !document || !form) {
+    return (
+      <MainLayout>
+        <div className="flex h-full flex-col items-center justify-center gap-4">
+          <p className="text-destructive">{loadError || '加载失败'}</p>
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            返回
+          </Button>
         </div>
       </MainLayout>
     )

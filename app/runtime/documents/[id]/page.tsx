@@ -960,10 +960,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                     config={field.relatedDocConfig}
                                     sourceValue={String(sourceFieldValue || '')}
                                     documentId={document.id}
-                                    onCreateClick={() => {
-                                      // 可以在这里添加生成回货单的逻辑
-                                      console.log('创建关联单据')
-                                    }}
                                   />
                                 </div>
                               )

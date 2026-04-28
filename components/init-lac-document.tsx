@@ -606,20 +606,20 @@ const lacDocumentType: DocumentType = {
       generateDocTypeId: 'doctype_return_goods',
       // 字段映射：LAC源字段 -> 回货单目标字段
       fieldMapping: {
-        'application_no': 'claim_no',           // 申请单号 -> 索赔单号
-        'sap_code': 'service_station_code',     // SAP代码 -> 服务站代码
-        'service_center_name': 'service_station_name', // 服务中心名称 -> 服务站名称
-        'contact_phone': 'contact_phone',       // 联系电话 -> 联系电话
-        'service_station_address': 'service_station_address', // 地址 -> 地址
-        'part_drawing_no': 'part_drawing_no',   // 物料图号 -> 物料图号
-        'part_name': 'part_name',               // 物料名称 -> 物料名称
-        'claim_quantity': 'material_quantity',  // 索赔数量 -> 物料数量
-        'shipping_warehouse': 'shipping_warehouse', // 发货地 -> 发货地
-        'problem_type': 'problem_type',         // 问题类型 -> 问题类型
-        'defect_description': 'problem_remark', // 缺陷描述 -> 问题备注
+        'application_no': 'claim_no',
+        'sap_code': 'service_station_code',
+        'service_center_name': 'service_station_name',
+        'contact_phone': 'contact_phone',
+        'service_station_address': 'service_station_address',
+        'part_drawing_no': 'part_drawing_no',
+        'part_name': 'part_name',
+        'claim_quantity': 'material_quantity',
+        'shipping_warehouse': 'shipping_warehouse',
+        'problem_type': 'problem_type',
+        'defect_description': 'problem_remark',
       },
       confirmRequired: true,
-      confirmMessage: '确定要根据此索赔单生成回货单吗？回货单将用于配件回货管理。',
+      confirmMessage: '确定要根据此索赔单生成回货单吗？',
       order: 4,
       enabled: true,
     },
