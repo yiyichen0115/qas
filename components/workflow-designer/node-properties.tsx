@@ -997,7 +997,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
 
       {/* 字段权限配置弹窗 */}
       <Dialog open={fieldPermissionDialogOpen} onOpenChange={setFieldPermissionDialogOpen}>
-        <DialogContent className="max-w-[98vw] w-[98vw] h-[90vh] flex flex-col overflow-hidden">
+        <DialogContent className="max-w-2xl w-[90vw] h-[80vh] flex flex-col overflow-hidden">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
@@ -1057,15 +1057,15 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
             </div>
           </div>
           
-          {/* 字段列表 - 支持横向和纵向滚动 */}
+          {/* 字段列表 */}
           <div className="flex-1 min-h-0 overflow-auto border rounded-lg">
-            <div className="min-w-[800px]">
+            <div>
               {getGroupedFields().map((group, groupIndex) => {
                 const filteredFields = filterFields(group.fields)
                 if (filteredFields.length === 0) return null
                 
                 return (
-                  <div key={groupIndex} className="mb-4">
+                  <div key={groupIndex} className="mb-2">
                     {/* 分组标题 */}
                     <div className="flex items-center gap-2 sticky top-0 bg-background py-2 px-3 z-10 border-b">
                       <div className="h-4 w-1 rounded-full bg-primary" />
@@ -1073,20 +1073,18 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                       <span className="text-xs text-muted-foreground">({filteredFields.length})</span>
                     </div>
                     
-                    {/* 字段表格 */}
+                    {/* 字段表格 - 精简版 */}
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/30">
-                          <TableHead className="text-xs whitespace-nowrap w-[250px] min-w-[250px]">字段名称</TableHead>
-                          <TableHead className="text-xs whitespace-nowrap w-[200px] min-w-[200px]">字段代码</TableHead>
-                          <TableHead className="text-xs whitespace-nowrap w-[120px] min-w-[120px]">字段类型</TableHead>
-                          <TableHead className="text-xs text-center whitespace-nowrap w-[100px] min-w-[100px]">
+                          <TableHead className="text-xs">字段名称</TableHead>
+                          <TableHead className="text-xs text-center w-[80px]">
                             <div className="flex items-center justify-center gap-1">
                               <Eye className="h-3 w-3" />
                               可见
                             </div>
                           </TableHead>
-                          <TableHead className="text-xs text-center whitespace-nowrap w-[100px] min-w-[100px]">
+                          <TableHead className="text-xs text-center w-[80px]">
                             <div className="flex items-center justify-center gap-1">
                               <Pencil className="h-3 w-3" />
                               可编辑
@@ -1094,45 +1092,35 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                           </TableHead>
                         </TableRow>
                       </TableHeader>
-                        <TableBody>
-                          {filteredFields.map((field) => {
-                            const fieldPerm = tempFieldPermissions[field.id] || { visible: true, editable: false }
-                            return (
-                              <TableRow key={field.id} className="hover:bg-muted/30">
-                                <TableCell className="py-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm">{field.label}</span>
-                                    {field.required && (
-                                      <span className="text-destructive text-xs">*</span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                    {field.name}
-                                  </code>
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  <Badge variant="outline" className="text-xs font-normal">
-                                    {field.type}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="py-2 text-center">
-                                  <Checkbox
-                                    checked={fieldPerm.visible}
-                                    onCheckedChange={() => toggleFieldPermission(field.id, 'visible')}
-                                  />
-                                </TableCell>
-                                <TableCell className="py-2 text-center">
-                                  <Checkbox
-                                    checked={fieldPerm.editable}
-                                    onCheckedChange={() => toggleFieldPermission(field.id, 'editable')}
-                                    disabled={!fieldPerm.visible}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
+                      <TableBody>
+                        {filteredFields.map((field) => {
+                          const fieldPerm = tempFieldPermissions[field.id] || { visible: true, editable: false }
+                          return (
+                            <TableRow key={field.id} className="hover:bg-muted/30">
+                              <TableCell className="py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm">{field.label}</span>
+                                  {field.required && (
+                                    <span className="text-destructive text-xs">*</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                <Checkbox
+                                  checked={fieldPerm.visible}
+                                  onCheckedChange={() => toggleFieldPermission(field.id, 'visible')}
+                                />
+                              </TableCell>
+                              <TableCell className="py-2 text-center">
+                                <Checkbox
+                                  checked={fieldPerm.editable}
+                                  onCheckedChange={() => toggleFieldPermission(field.id, 'editable')}
+                                  disabled={!fieldPerm.visible}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </div>
