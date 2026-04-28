@@ -112,6 +112,7 @@ export type FieldType =
   | 'formula'
   | 'divider'
   | 'description'
+  | 'related_documents' // 关联单据列表
 
 export interface SelectOption {
   label: string
@@ -145,6 +146,35 @@ export interface FieldLinkageConfig {
   sourceField: string // 触发联动的字段名
   sourceType: 'vin' | 'dealer_code' | 'custom' // 联动类型
   targetMappings: FieldLinkageMapping[] // 目标字段映射
+}
+
+// 关联单据字段配置
+export interface RelatedDocumentConfig {
+  docTypeId: string // 关联的单据类型ID
+  docTypeName: string // 关联的单据类型名称
+  linkField: string // 关联字段（在关联单据中的字段名）
+  linkSourceField: string // 源字段（当前单据中的字段名）
+  displayColumns: RelatedDocumentColumn[] // 显示的列
+  actions?: RelatedDocumentAction[] // 可用的操作
+  emptyText?: string // 空数据时的提示
+  allowCreate?: boolean // 是否允许创建关联单据
+  createButtonText?: string // 创建按钮文字
+  createButtonIcon?: string // 创建按钮图标
+}
+
+export interface RelatedDocumentColumn {
+  field: string
+  label: string
+  width?: string
+  format?: 'text' | 'date' | 'datetime' | 'status' | 'number'
+}
+
+export interface RelatedDocumentAction {
+  code: string
+  label: string
+  icon?: string
+  confirmRequired?: boolean
+  confirmMessage?: string
 }
 
 export interface FieldLinkageMapping {
@@ -188,6 +218,8 @@ export interface FormField {
   dateFormat?: string
   // 字段联动配置
   linkage?: FieldLinkageConfig
+  // 关联单据配置（仅 related_documents 类型使用）
+  relatedDocConfig?: RelatedDocumentConfig
 }
 
 // ==================== 操作按钮配置 ====================

@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog'
 
 import { MainLayout } from '@/components/layout/main-layout'
+import { RelatedDocumentsList } from '@/components/related-documents-list'
 import {
   documentStorage,
   formStorage,
@@ -35,7 +36,7 @@ import {
   documentTypeStorage
 } from '@/lib/storage'
 import { roleStorage } from '@/lib/storage'
-import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission } from '@/lib/types'
+import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission, RelatedDocumentConfig } from '@/lib/types'
 
 function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -704,6 +705,25 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                               if (field.width === 'full') return 'sm:col-span-2 lg:col-span-3'
                               if (field.width === 'half') return 'lg:col-span-1'
                               return ''
+                            }
+                            
+                            // 关联单据字段特殊处理
+                            if (field.type === 'related_documents' && field.relatedDocConfig) {
+                              // 获取源字段的值
+                              const sourceFieldValue = document.formData[field.relatedDocConfig.linkSourceField]
+                              return (
+                                <div key={field.id} className="sm:col-span-2 lg:col-span-3 mt-2">
+                                  <RelatedDocumentsList
+                                    config={field.relatedDocConfig}
+                                    sourceValue={String(sourceFieldValue || '')}
+                                    documentId={document.id}
+                                    onCreateClick={() => {
+                                      // 可以在这里添加生成回货单的逻辑
+                                      console.log('创建关联单据')
+                                    }}
+                                  />
+                                </div>
+                              )
                             }
                             
                             // 多行文本特殊处理

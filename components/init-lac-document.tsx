@@ -487,6 +487,47 @@ const lacDocumentType: DocumentType = {
       placeholder: '备注文本',
       width: 'full',
     },
+    
+    // 关联回货单区
+    {
+      id: 'section_return_goods',
+      type: 'divider',
+      label: '关联回货单',
+      name: 'section_return_goods',
+      required: false,
+      width: 'full',
+    },
+    {
+      id: 'return_goods_list',
+      type: 'related_documents',
+      label: '回货单列表',
+      name: 'return_goods_list',
+      required: false,
+      width: 'full',
+      relatedDocConfig: {
+        docTypeId: 'doctype_return_goods',
+        docTypeName: '回货单',
+        linkField: 'claim_no',
+        linkSourceField: 'application_no',
+        displayColumns: [
+          { field: 'return_goods_no', label: '回货单号', width: '120px' },
+          { field: 'return_goods_status', label: '状态', width: '80px' },
+          { field: 'material_quantity', label: '回货数量', width: '80px' },
+          { field: 'shipping_warehouse', label: '发货地', width: '100px' },
+          { field: 'warehouse_receive_date', label: '签收日期', width: '100px' },
+          { field: 'receive_status', label: '收货状态', width: '80px' },
+          { field: 'quality_audit_result', label: '审核结果', width: '80px' },
+        ],
+        actions: [
+          { code: 'view', label: '查看', icon: 'Eye' },
+          { code: 'print', label: '打印', icon: 'Printer' },
+        ],
+        emptyText: '暂无关联回货单',
+        allowCreate: true,
+        createButtonText: '生成回货单',
+        createButtonIcon: 'PackagePlus',
+      },
+    },
   ] as FormField[],
   
   // 启用回复功能
