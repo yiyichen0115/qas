@@ -1074,20 +1074,20 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                     </div>
                     
                     {/* 字段表格 */}
-                    <div className="rounded-lg border border-border overflow-hidden">
-                      <Table className="table-fixed w-full">
+                    <div className="rounded-lg border border-border overflow-x-auto">
+                      <Table className="min-w-[700px]">
                         <TableHeader>
                           <TableRow className="bg-muted/30">
-                            <TableHead className="text-xs whitespace-nowrap w-[35%]">字段名称</TableHead>
-                            <TableHead className="text-xs whitespace-nowrap w-[30%]">字段代码</TableHead>
-                            <TableHead className="text-xs whitespace-nowrap w-[15%]">字段类型</TableHead>
-                            <TableHead className="text-xs text-center whitespace-nowrap w-[10%]">
+                            <TableHead className="text-xs whitespace-nowrap w-[220px]">字段名称</TableHead>
+                            <TableHead className="text-xs whitespace-nowrap w-[180px]">字段代码</TableHead>
+                            <TableHead className="text-xs whitespace-nowrap w-[100px]">字段类型</TableHead>
+                            <TableHead className="text-xs text-center whitespace-nowrap w-[80px]">
                               <div className="flex items-center justify-center gap-1">
                                 <Eye className="h-3 w-3" />
                                 可见
                               </div>
                             </TableHead>
-                            <TableHead className="text-xs text-center whitespace-nowrap w-[10%]">
+                            <TableHead className="text-xs text-center whitespace-nowrap w-[80px]">
                               <div className="flex items-center justify-center gap-1">
                                 <Pencil className="h-3 w-3" />
                                 可编辑
