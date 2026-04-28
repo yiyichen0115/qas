@@ -546,6 +546,7 @@ export interface NodePermission {
   canEdit: boolean // 是否可以编辑该节点的单据
   canApprove: boolean // 是否可以审批（仅审批节点）
   canReject: boolean // 是否可以驳回（仅审批节点）
+  canReturn: boolean // 是否可以退回到草稿状态
   canTransfer: boolean // 是否可以转单
   canComment: boolean // 是否可以添加评论
 }

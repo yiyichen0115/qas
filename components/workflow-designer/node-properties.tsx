@@ -192,18 +192,19 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
         roleId,
         canView: true,
         canEdit: true,
-        canApprove: false,
-        canReject: false,
-        canTransfer: false,
-        canComment: false,
-        fieldPermissions
-      })
-    }
+                        canApprove: false,
+                        canReject: false,
+                        canReturn: false,
+                        canTransfer: false,
+                        canComment: false,
+                        fieldPermissions
+                      })
+                    }
 
-    updateData({ permissions: updatedPermissions })
-  }
+                    updateData({ permissions: updatedPermissions })
+                  }
 
-  // 打开字段权限配置弹窗
+                  // 打开字段权限配置弹窗
   const openFieldPermissionDialog = (roleId: string) => {
     const permission = localData.permissions?.find(p => p.roleId === roleId)
     setCurrentEditingRoleId(roleId)
@@ -315,7 +316,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
     { value: 'user', label: '指定用户', description: '选择具体的用户' },
     { value: 'role', label: '指定角色', description: '该角色下的所有用户' },
     { value: 'department', label: '部门负责人', description: '部门负责人处理' },
-    { value: 'initiator', label: '发起人', description: '单据创建者' },
+    { value: 'initiator', label: '��起人', description: '单据创建者' },
     { value: 'superior', label: '直属上级', description: '发起人的上级' },
   ]
 
@@ -712,6 +713,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                     canEdit: false,
                     canApprove: false,
                     canReject: false,
+                    canReturn: false,
                     canTransfer: false,
                     canComment: false,
                     fieldPermissions: {}
@@ -746,6 +748,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                                     canEdit: false,
                                     canApprove: false,
                                     canReject: false,
+                                    canReturn: false,
                                     canTransfer: false,
                                     canComment: false,
                                     fieldPermissions: {}
@@ -776,6 +779,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                                     canEdit: checked,
                                     canApprove: false,
                                     canReject: false,
+                                    canReturn: false,
                                     canTransfer: false,
                                     canComment: false,
                                     fieldPermissions: {}
@@ -809,6 +813,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                                         canEdit: false,
                                         canApprove: checked,
                                         canReject: false,
+                                        canReturn: false,
                                         canTransfer: false,
                                         canComment: false,
                                         fieldPermissions: {}
@@ -839,6 +844,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                                         canEdit: false,
                                         canApprove: false,
                                         canReject: checked,
+                                        canReturn: false,
                                         canTransfer: false,
                                         canComment: false,
                                         fieldPermissions: {}
@@ -873,6 +879,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                                       canEdit: false,
                                       canApprove: false,
                                       canReject: false,
+                                      canReturn: false,
                                       canTransfer: checked,
                                       canComment: false,
                                       fieldPermissions: {}
@@ -884,6 +891,38 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                               />
                             </div>
                           )}
+
+                          {/* 退回权限 */}
+                          <div className="flex items-center justify-between py-1">
+                            <span className="text-xs text-muted-foreground">可退回</span>
+                            <Switch
+                              className="scale-90"
+                              checked={permission?.canReturn === true}
+                              onCheckedChange={(checked) => {
+                                const updatedPermissions = localData.permissions?.map(p =>
+                                  p.roleId === role.id
+                                    ? { ...p, canReturn: checked }
+                                    : p
+                                ) || []
+
+                                if (!updatedPermissions.find(p => p.roleId === role.id)) {
+                                  updatedPermissions.push({
+                                    roleId: role.id,
+                                    canView: false,
+                                    canEdit: false,
+                                    canApprove: false,
+                                    canReject: false,
+                                    canReturn: checked,
+                                    canTransfer: false,
+                                    canComment: false,
+                                    fieldPermissions: {}
+                                  })
+                                }
+
+                                updateData({ permissions: updatedPermissions })
+                              }}
+                            />
+                          </div>
 
                           <div className="flex items-center justify-between py-1">
                             <span className="text-xs text-muted-foreground">可评论</span>
@@ -904,6 +943,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                                     canEdit: false,
                                     canApprove: false,
                                     canReject: false,
+                                    canReturn: false,
                                     canTransfer: false,
                                     canComment: checked,
                                     fieldPermissions: {}

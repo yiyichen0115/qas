@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
   Clock, User, FileText, Loader2, Plus,
-  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check
+  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check, RotateCcw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -87,7 +87,9 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
+  const [returnReason, setReturnReason] = useState('')
   
   // 字段编辑状态
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
@@ -278,6 +280,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         if (action === 'edit' && permission.canEdit) return true
         if (action === 'approve' && permission.canApprove) return true
         if (action === 'reject' && permission.canReject) return true
+        if (action === 'return' && permission.canReturn) return true
         if (action === 'transfer' && permission.canTransfer) return true
         if (action === 'comment' && permission.canComment) return true
 
@@ -500,9 +503,49 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  // 退回单据到草稿状态
+  const handleReturnDocument = async () => {
+    const user = getEffectiveUser()
+    if (!document || !user) return
+    
+    setIsSubmitting(true)
+    try {
+      // 创建退回记录
+      const approval: ApprovalRecord = {
+        id: generateId(),
+        documentId: document.id,
+        nodeId: document.currentNodeId || '',
+        nodeName: '退回',
+        approverId: user.id,
+        approverName: user.name,
+        action: 'return',
+        comment: returnReason || '单据被退回，请重新编辑后提交',
+        createdAt: new Date().toISOString(),
+      }
+      
+      approvalStorage.save(approval)
+      
+      // 更新单据状态为草稿
+      const updatedDoc: Document = {
+        ...document,
+        status: 'draft',
+        currentNodeId: undefined, // 清除当前节点，回到初始状态
+        updatedAt: new Date().toISOString(),
+      }
+      documentStorage.save(updatedDoc)
+      
+      setShowReturnDialog(false)
+      setReturnReason('')
+      loadData()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   // 判断当前用户是否可以审批
   const canApprove = hasPermission('approve')
   const canReject = hasPermission('reject')
+  const canReturn = hasPermission('return')
   const canEdit = hasPermission('edit')
   const canView = hasPermission('view')
   const canComment = hasPermission('comment')
@@ -608,7 +651,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* 审批中状态时显示醒目的审核提示 */}
-        {document.status === 'pending' && (canApprove || canReject) && (
+        {document.status === 'pending' && (canApprove || canReject || canReturn) && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -616,6 +659,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 <span className="text-amber-800 font-medium">此单据正在等待您的审核</span>
               </div>
               <div className="flex items-center gap-2">
+                {canReturn && (
+                  <Button variant="outline" size="sm" className="border-orange-300 text-orange-600 hover:bg-orange-50" onClick={() => setShowReturnDialog(true)}>
+                    <RotateCcw className="mr-1.5 h-4 w-4" />
+                    退回
+                  </Button>
+                )}
                 {canReject && (
                   <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => setShowRejectDialog(true)}>
                     <XCircle className="mr-1.5 h-4 w-4" />
@@ -629,6 +678,22 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   </Button>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 非待审核状态时，如果有退回权限也显示退回按钮 */}
+        {document.status !== 'pending' && document.status !== 'draft' && document.status !== 'rejected' && document.status !== 'closed' && document.status !== 'cancelled' && canReturn && (
+          <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-orange-600" />
+                <span className="text-orange-800 font-medium">您可以将此单据退回给创建人重新编辑</span>
+              </div>
+              <Button variant="outline" size="sm" className="border-orange-300 text-orange-600 hover:bg-orange-50" onClick={() => setShowReturnDialog(true)}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                退回单据
+              </Button>
             </div>
           </div>
         )}
@@ -1335,6 +1400,35 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               确认驳回
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 退回对话框 */}
+      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>退回单据</DialogTitle>
+            <DialogDescription>退回后单据将回到草稿状态，创建人可以重新编辑后提交</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="请输入退回原因（可选）"
+            value={returnReason}
+            onChange={(e) => setReturnReason(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReturnDialog(false)}>
+              取消
+            </Button>
+            <Button 
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={handleReturnDocument} 
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              确认退回
             </Button>
           </DialogFooter>
         </DialogContent>
