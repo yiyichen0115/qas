@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { InitPacDocument } from '@/components/init-pac-document'
 import { InitLacDocument } from '@/components/init-lac-document'
+import { InitReturnGoodsDocument } from '@/components/init-return-goods-document'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <InitPacDocument />
         <InitLacDocument />
+        <InitReturnGoodsDocument />
         {children}
         <Analytics />
       </body>

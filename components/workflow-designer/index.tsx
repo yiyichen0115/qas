@@ -285,7 +285,7 @@ export const WorkflowDesigner = forwardRef<WorkflowDesignerRef, WorkflowDesigner
           />
         </ReactFlow>
       </div>
-      <NodeProperties node={selectedNode} onUpdateNode={onUpdateNode} />
+      <NodeProperties node={selectedNode} onUpdateNode={onUpdateNode} workflowId={workflowId} />
     </div>
   )
 })

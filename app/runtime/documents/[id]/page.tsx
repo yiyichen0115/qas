@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
   Clock, User, FileText, Loader2, Plus,
-  Paperclip, X, Image as ImageIcon, File
+  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check, RotateCcw, PackageCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,8 +23,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 
 import { MainLayout } from '@/components/layout/main-layout'
+import { RelatedDocumentsList } from '@/components/related-documents-list'
 import {
   documentStorage,
   formStorage,
@@ -35,7 +44,7 @@ import {
   documentTypeStorage
 } from '@/lib/storage'
 import { roleStorage } from '@/lib/storage'
-import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission } from '@/lib/types'
+import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission, RelatedDocumentConfig, ActionButton } from '@/lib/types'
 
 function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -78,7 +87,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
 
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
+  const [showReturnDialog, setShowReturnDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
+  const [returnReason, setReturnReason] = useState('')
+  
+  // 字段编辑状态
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
+  const [editingFieldValue, setEditingFieldValue] = useState<unknown>(null)
+  const [isSavingField, setIsSavingField] = useState(false)
 
   useEffect(() => {
     setIsLoading(true)
@@ -185,7 +201,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     // 获取用户的所有角色标识
     const userRoleIdentifiers = getUserRoleIdentifiers()
     
-    // 检查是否是管理员角色
+    // 检查是��是管理员角色
     const isAdmin = userRoleIdentifiers.some(r => r === 'role_admin' || r === 'admin')
     
     // 管理员拥有所有权限
@@ -264,6 +280,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
         if (action === 'edit' && permission.canEdit) return true
         if (action === 'approve' && permission.canApprove) return true
         if (action === 'reject' && permission.canReject) return true
+        if (action === 'return' && permission.canReturn) return true
         if (action === 'transfer' && permission.canTransfer) return true
         if (action === 'comment' && permission.canComment) return true
 
@@ -296,6 +313,44 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
 
     return { visible: true, editable: false }
+  }
+
+  // 开始编辑字段
+  const startEditField = (fieldId: string, fieldName: string) => {
+    if (!document) return
+    setEditingFieldId(fieldId)
+    setEditingFieldValue(document.formData[fieldName])
+  }
+
+  // 取消编辑字段
+  const cancelEditField = () => {
+    setEditingFieldId(null)
+    setEditingFieldValue(null)
+  }
+
+  // 保存字段编辑
+  const saveFieldEdit = async (fieldName: string) => {
+    if (!document) return
+    
+    setIsSavingField(true)
+    try {
+      // 更新文档数据
+      const updatedDoc: Document = {
+        ...document,
+        formData: {
+          ...document.formData,
+          [fieldName]: editingFieldValue,
+        },
+        updatedAt: new Date().toISOString(),
+      }
+      
+      documentStorage.save(updatedDoc)
+      setDocument(updatedDoc)
+      setEditingFieldId(null)
+      setEditingFieldValue(null)
+    } finally {
+      setIsSavingField(false)
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -448,9 +503,149 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  // 退回单据到草稿状态
+  const handleReturnDocument = async () => {
+    const user = getEffectiveUser()
+    if (!document || !user) return
+    
+    setIsSubmitting(true)
+    try {
+      // 创建退回记录
+      const approval: ApprovalRecord = {
+        id: generateId(),
+        documentId: document.id,
+        nodeId: document.currentNodeId || '',
+        nodeName: '退回',
+        approverId: user.id,
+        approverName: user.name,
+        action: 'return',
+        comment: returnReason || '单据被退回，请重新编辑后提交',
+        createdAt: new Date().toISOString(),
+      }
+      
+      approvalStorage.save(approval)
+      
+      // 更新单据状态为草稿
+      const updatedDoc: Document = {
+        ...document,
+        status: 'draft',
+        currentNodeId: undefined, // 清除当前节点，回到初始状态
+        updatedAt: new Date().toISOString(),
+      }
+      documentStorage.save(updatedDoc)
+      
+      setShowReturnDialog(false)
+      setReturnReason('')
+      loadData()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // 生成关联单据（如从LAC生成回货单）
+  const handleGenerateDocument = async (button: ActionButton) => {
+    const user = getEffectiveUser()
+    if (!document || !user || !button.generateDocTypeId) return
+
+    // 确认操作
+    if (button.confirmRequired && button.confirmMessage) {
+      if (!confirm(button.confirmMessage)) return
+    }
+
+    setIsSubmitting(true)
+    try {
+      // 获取目标单据类型
+      const targetDocType = documentTypeStorage.getById(button.generateDocTypeId)
+      if (!targetDocType) {
+        alert('目标单据类型不存在')
+        return
+      }
+
+      // 生成新单号
+      const now = new Date()
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+      const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+      const newDocNumber = `${targetDocType.numberRule?.prefix || targetDocType.code}${dateStr}${randomNum}`
+
+      // 根据字段映射生成表单数据
+      const newFormData: Record<string, unknown> = {
+        // 记录源单据信息
+        source_document_id: document.id,
+        source_document_number: document.documentNumber,
+        source_document_type: document.documentTypeId || document.formId,
+      }
+
+      // 应用字段映射
+      if (button.fieldMapping) {
+        for (const [sourceField, targetField] of Object.entries(button.fieldMapping)) {
+          if (document.formData[sourceField] !== undefined) {
+            newFormData[targetField] = document.formData[sourceField]
+          }
+        }
+      }
+
+      // 创建新单据
+      const newDocument: Document = {
+        id: generateId(),
+        documentNumber: newDocNumber,
+        documentTypeId: button.generateDocTypeId,
+        formId: button.generateDocTypeId,
+        formData: newFormData,
+        status: 'draft',
+        createdBy: user.id,
+        createdByName: user.name,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      }
+
+      documentStorage.save(newDocument)
+
+      // 提示用户并跳转
+      alert(`已成功生成${targetDocType.name}：${newDocNumber}`)
+      router.push(`/runtime/documents/${newDocument.id}`)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // 获取当前单据类型的操作按钮
+  const getVisibleActionButtons = (): ActionButton[] => {
+    if (!form || !document) return []
+    
+    const docType = form as DocumentType
+    if (!docType.actionButtons) return []
+
+    const userRoles = currentUser?.roles || []
+    
+    return docType.actionButtons.filter(button => {
+      // 检查是否启用
+      if (!button.enabled) return false
+      
+      // 检查状态是否匹配
+      if (button.visibleStatus && button.visibleStatus.length > 0) {
+        if (!button.visibleStatus.includes(document.status)) return false
+      }
+      
+      // 检查角色是否匹配
+      if (button.visibleRoles && button.visibleRoles.length > 0) {
+        const hasRole = button.visibleRoles.some(role => userRoles.includes(role))
+        if (!hasRole) return false
+      }
+      
+      // 只显示footer位置的生成单据按钮
+      if (button.position !== 'footer') return false
+      if (button.actionType !== 'generate_doc') return false
+      
+      return true
+    }).sort((a, b) => a.order - b.order)
+  }
+
+  const visibleActionButtons = getVisibleActionButtons()
+
   // 判断当前用户是否可以审批
   const canApprove = hasPermission('approve')
   const canReject = hasPermission('reject')
+  const canReturn = hasPermission('return')
   const canEdit = hasPermission('edit')
   const canView = hasPermission('view')
   const canComment = hasPermission('comment')
@@ -552,11 +747,25 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 撤销
               </Button>
             )}
+            {/* 动态操作按钮（如生成回货单） */}
+            {visibleActionButtons.map(button => (
+              <Button
+                key={button.id}
+                variant={button.type === 'primary' ? 'default' : 'outline'}
+                onClick={() => handleGenerateDocument(button)}
+                disabled={isSubmitting}
+                className={button.type === 'primary' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+              >
+                {button.icon === 'PackageCheck' && <PackageCheck className="mr-2 h-4 w-4" />}
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {button.name}
+              </Button>
+            ))}
           </div>
         </div>
 
         {/* 审批中状态时显示醒目的审核提示 */}
-        {document.status === 'pending' && (canApprove || canReject) && (
+        {document.status === 'pending' && (canApprove || canReject || canReturn) && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -564,6 +773,12 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 <span className="text-amber-800 font-medium">此单据正在等待您的审核</span>
               </div>
               <div className="flex items-center gap-2">
+                {canReturn && (
+                  <Button variant="outline" size="sm" className="border-orange-300 text-orange-600 hover:bg-orange-50" onClick={() => setShowReturnDialog(true)}>
+                    <RotateCcw className="mr-1.5 h-4 w-4" />
+                    退回
+                  </Button>
+                )}
                 {canReject && (
                   <Button variant="outline" size="sm" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => setShowRejectDialog(true)}>
                     <XCircle className="mr-1.5 h-4 w-4" />
@@ -577,6 +792,22 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   </Button>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 非待审核状态时，如果有退回权限也显示退回按钮 */}
+        {document.status !== 'pending' && document.status !== 'draft' && document.status !== 'rejected' && document.status !== 'closed' && document.status !== 'cancelled' && canReturn && (
+          <div className="bg-orange-50 border-b border-orange-200 px-6 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-orange-600" />
+                <span className="text-orange-800 font-medium">您可以将此单据退回给创建人重新编辑</span>
+              </div>
+              <Button variant="outline" size="sm" className="border-orange-300 text-orange-600 hover:bg-orange-50" onClick={() => setShowReturnDialog(true)}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                退回单据
+              </Button>
             </div>
           </div>
         )}
@@ -706,27 +937,221 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                               return ''
                             }
                             
+                            // 关联单据字段特殊处理
+                            if (field.type === 'related_documents' && field.relatedDocConfig) {
+                              // 获取源字段的值
+                              const sourceFieldValue = document.formData[field.relatedDocConfig.linkSourceField]
+                              return (
+                                <div key={field.id} className="sm:col-span-2 lg:col-span-3 mt-2">
+                                  <RelatedDocumentsList
+                                    config={field.relatedDocConfig}
+                                    sourceValue={String(sourceFieldValue || '')}
+                                    documentId={document.id}
+                                    onCreateClick={() => {
+                                      // 可以在这里添加生成回货单的逻辑
+                                      console.log('创建关联单据')
+                                    }}
+                                  />
+                                </div>
+                              )
+                            }
+                            
+                            // 检查是否正在编辑该字段
+                            const isEditing = editingFieldId === field.id
+                            
+                            // 渲染编辑控件
+                            const renderEditControl = () => {
+                              switch (field.type) {
+                                case 'text':
+                                  return (
+                                    <Input
+                                      value={String(editingFieldValue || '')}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'number':
+                                  return (
+                                    <Input
+                                      type="number"
+                                      value={editingFieldValue as number || ''}
+                                      onChange={(e) => setEditingFieldValue(e.target.value ? Number(e.target.value) : '')}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'textarea':
+                                case 'richtext':
+                                  return (
+                                    <Textarea
+                                      value={String(editingFieldValue || '')}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="text-sm min-h-[80px]"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'select':
+                                case 'radio':
+                                  return (
+                                    <Select
+                                      value={String(editingFieldValue || '')}
+                                      onValueChange={(v) => setEditingFieldValue(v)}
+                                    >
+                                      <SelectTrigger className="h-8 text-sm">
+                                        <SelectValue placeholder="请选择" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {field.options?.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )
+                                case 'switch':
+                                  return (
+                                    <Switch
+                                      checked={Boolean(editingFieldValue)}
+                                      onCheckedChange={(checked) => setEditingFieldValue(checked)}
+                                    />
+                                  )
+                                case 'date':
+                                  return (
+                                    <Input
+                                      type="date"
+                                      value={editingFieldValue ? String(editingFieldValue).split('T')[0] : ''}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'datetime':
+                                  return (
+                                    <Input
+                                      type="datetime-local"
+                                      value={editingFieldValue ? String(editingFieldValue).slice(0, 16) : ''}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                default:
+                                  return (
+                                    <Input
+                                      value={String(editingFieldValue || '')}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                              }
+                            }
+                            
                             // 多行文本特殊处理
                             if (field.type === 'textarea' || field.type === 'richtext') {
                               return (
                                 <div key={field.id} className={`${getWidthClass()}`}>
-                                  <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
-                                  <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
-                                    {displayValue}
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-muted-foreground">{field.label}</span>
+                                    {fieldPerm.editable && !isEditing && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs text-primary hover:text-primary"
+                                        onClick={() => startEditField(field.id, field.name)}
+                                      >
+                                        <Pencil className="h-3 w-3 mr-1" />
+                                        编辑
+                                      </Button>
+                                    )}
                                   </div>
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      {renderEditControl()}
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={() => saveFieldEdit(field.name)}
+                                          disabled={isSavingField}
+                                        >
+                                          {isSavingField ? (
+                                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          ) : (
+                                            <Check className="h-3 w-3 mr-1" />
+                                          )}
+                                          保存
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={cancelEditField}
+                                        >
+                                          取消
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
+                                      {displayValue}
+                                    </div>
+                                  )}
                                 </div>
                               )
                             }
 
                             return (
-                              <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
-                                <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
-                                <span className="text-sm font-medium truncate">
-                                  {displayValue}
-                                  {!fieldPerm.editable && canEdit && (
-                                    <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
-                                  )}
-                                </span>
+                              <div key={field.id} className={`group ${getWidthClass()}`}>
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <span className="text-sm text-muted-foreground">{field.label}</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1">
+                                        {renderEditControl()}
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        className="h-8 px-2"
+                                        onClick={() => saveFieldEdit(field.name)}
+                                        disabled={isSavingField}
+                                      >
+                                        {isSavingField ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Check className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 px-2"
+                                        onClick={cancelEditField}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
+                                    <span className="text-sm font-medium truncate flex-1">
+                                      {displayValue}
+                                    </span>
+                                    {fieldPerm.editable && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:text-primary"
+                                        onClick={() => startEditField(field.id, field.name)}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}
@@ -1022,7 +1447,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                         </Button>
                       </div>
                       
-                      {/* 隐藏的文件输入 */}
+                      {/* 隐藏���文件输入 */}
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -1089,6 +1514,35 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             >
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               确认驳回
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 退回对话框 */}
+      <Dialog open={showReturnDialog} onOpenChange={setShowReturnDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>退回单据</DialogTitle>
+            <DialogDescription>退回后单据将回到草稿状态，创建人可以重新编辑后提交</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            placeholder="请输入退回原因（可选）"
+            value={returnReason}
+            onChange={(e) => setReturnReason(e.target.value)}
+            rows={3}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReturnDialog(false)}>
+              取消
+            </Button>
+            <Button 
+              className="bg-orange-600 hover:bg-orange-700"
+              onClick={handleReturnDocument} 
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              确认退回
             </Button>
           </DialogFooter>
         </DialogContent>
