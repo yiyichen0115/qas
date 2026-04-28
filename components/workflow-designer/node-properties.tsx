@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Node } from '@xyflow/react'
-import type { WorkflowNodeData, ApproverType, NodeType, FormField, FormConfig, WorkflowConfig } from '@/lib/types'
+import type { WorkflowNodeData, ApproverType, NodeType, FormField, FormConfig, WorkflowConfig, DocumentType } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -916,37 +916,35 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                           </div>
                         </div>
 
-                        {/* 字段权限配置按钮 - 打开弹窗 */}
-                        {permission?.canEdit && (
-                          <div className="pt-2 border-t border-border">
-                            {currentForm ? (
-                              <button
-                                className="flex w-full items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                                onClick={() => openFieldPermissionDialog(role.id)}
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  <span>配置字段编辑权限</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length > 0 && (
-                                    <Badge variant="secondary" className="h-5 text-[10px]">
-                                      {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length} 个可编辑
-                                    </Badge>
-                                  )}
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </div>
-                              </button>
-                            ) : (
-                              <div className="py-2 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  <span>请先关联表单后再配置字段权限</span>
-                                </div>
+                        {/* 字段权限配置按钮 - 打开弹窗，始终显示（只要有表单关联） */}
+                        <div className="pt-2 border-t border-border">
+                          {currentForm ? (
+                            <button
+                              className="flex w-full items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              onClick={() => openFieldPermissionDialog(role.id)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span>配置字段编辑权限</span>
                               </div>
-                            )}
-                          </div>
-                        )}
+                              <div className="flex items-center gap-1">
+                                {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length > 0 && (
+                                  <Badge variant="secondary" className="h-5 text-[10px]">
+                                    {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length} 个可编辑
+                                  </Badge>
+                                )}
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </div>
+                            </button>
+                          ) : (
+                            <div className="py-2 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span>请先关联单据类型后再配置字段权限</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
