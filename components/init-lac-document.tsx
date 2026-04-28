@@ -503,7 +503,7 @@ const lacDocumentType: DocumentType = {
       position: 'header',
       visibleStatus: ['draft', 'pending'],
       visibleRoles: ['dealer', 'admin'],
-      actionType: 'save',
+      actionType: 'custom',
       confirmRequired: false,
       order: 1,
       enabled: true,
@@ -517,7 +517,8 @@ const lacDocumentType: DocumentType = {
       position: 'footer',
       visibleStatus: ['draft'],
       visibleRoles: ['dealer', 'admin'],
-      actionType: 'submit',
+      actionType: 'status_change',
+      toStatus: 'pending',
       confirmRequired: true,
       confirmMessage: '确定要提交此索赔单吗？',
       order: 1,
@@ -552,6 +553,36 @@ const lacDocumentType: DocumentType = {
       enabled: true,
     },
     {
+      id: 'btn_generate_return_goods',
+      name: '生成回货单',
+      code: 'generate_return_goods',
+      type: 'primary',
+      icon: 'PackageCheck',
+      position: 'footer',
+      visibleStatus: ['replied', 'processing'],
+      visibleRoles: ['engineer', 'admin'],
+      actionType: 'generate_doc',
+      generateDocTypeId: 'doctype_return_goods',
+      fieldMapping: {
+        'claim_no': 'application_no',
+        'service_station_code': 'sap_code',
+        'service_station_name': 'service_center_name',
+        'contact_phone': 'contact_phone',
+        'part_drawing_no': 'part_drawing_no',
+        'part_name': 'part_name',
+        'claim_quantity': 'claim_quantity',
+        'material_quantity': 'claim_quantity',
+        'shipping_warehouse': 'shipping_warehouse',
+        'problem_type': 'problem_type',
+        'problem_remark': 'problem_remark',
+        'claim_method': 'claim_method',
+      },
+      confirmRequired: true,
+      confirmMessage: '确定要根据此索赔单生成回货单吗？回货单将用于配件回货管理。',
+      order: 4,
+      enabled: true,
+    },
+    {
       id: 'btn_close',
       name: '关闭单据',
       code: 'close',
@@ -564,7 +595,33 @@ const lacDocumentType: DocumentType = {
       toStatus: 'closed',
       confirmRequired: true,
       confirmMessage: '确定要关闭此索赔单吗？关闭后将无法继续处理。',
-      order: 4,
+      order: 5,
+      enabled: true,
+    },
+    {
+      id: 'btn_print_return_goods',
+      name: '打印回货单',
+      code: 'print_return_goods',
+      type: 'secondary',
+      icon: 'Printer',
+      position: 'toolbar',
+      visibleStatus: ['replied', 'processing', 'closed'],
+      actionType: 'custom',
+      order: 1,
+      enabled: true,
+    },
+    {
+      id: 'btn_view_return_goods',
+      name: '查看回货单',
+      code: 'view_return_goods',
+      type: 'link',
+      icon: 'ExternalLink',
+      position: 'toolbar',
+      visibleStatus: ['replied', 'processing', 'closed'],
+      actionType: 'open_url',
+      openUrl: '/runtime/documents?type=doctype_return_goods&claim_no={application_no}',
+      openInNewTab: false,
+      order: 2,
       enabled: true,
     },
   ] as ActionButton[],
@@ -716,11 +773,74 @@ const lacWorkflowNodes: WorkflowNode[] = [
       ],
     },
   },
+  // 索赔方式判定节点
+  {
+    id: 'node_claim_method_condition',
+    type: 'condition',
+    position: { x: 100, y: 650 },
+    data: {
+      label: '索赔方式判定',
+      description: '根据索赔方式决定是否需要生成回货单',
+      conditions: [
+        {
+          id: 'cond_need_return',
+          name: '需要回货',
+          rules: [
+            { field: 'claim_method', operator: 'eq', value: '换发' },
+          ],
+          logic: 'or',
+          targetNodeId: 'node_generate_return_goods',
+        },
+        {
+          id: 'cond_no_return',
+          name: '无需回货',
+          rules: [
+            { field: 'claim_method', operator: 'eq', value: '补发' },
+            { field: 'claim_method', operator: 'eq', value: '退款' },
+          ],
+          logic: 'or',
+          targetNodeId: 'node_complete',
+        },
+      ],
+    },
+  },
+  // 生成回货单节点
+  {
+    id: 'node_generate_return_goods',
+    type: 'action',
+    position: { x: -50, y: 750 },
+    data: {
+      label: '生成回货单',
+      description: 'LAC系统生成回货单，回货单上须有条码，仓库可直接扫码签收',
+      permissions: [
+        {
+          roleId: 'engineer',
+          fieldPermissions: {},
+          canView: true,
+          canEdit: true,
+          canApprove: false,
+          canReject: false,
+          canTransfer: false,
+          canComment: true,
+        },
+      ],
+    },
+  },
+  // 回货流程节点（子流程）
+  {
+    id: 'node_return_goods_flow',
+    type: 'subprocess',
+    position: { x: -50, y: 850 },
+    data: {
+      label: '回货处理流程',
+      description: '进入回货处理子流程：打印回货单 -> 服务站发货 -> 仓库扫码签收 -> 收货入库 -> 质量审核',
+    },
+  },
   // 完成节点
   {
     id: 'node_complete',
     type: 'approve',
-    position: { x: 100, y: 650 },
+    position: { x: 250, y: 850 },
     data: {
       label: '索赔完成',
       description: '索赔处理完成，等待服务中心确认',
@@ -752,7 +872,7 @@ const lacWorkflowNodes: WorkflowNode[] = [
   {
     id: 'node_closed',
     type: 'end',
-    position: { x: 100, y: 750 },
+    position: { x: 250, y: 950 },
     data: {
       label: '已关闭',
       description: '索赔已完成并关闭',
@@ -768,9 +888,13 @@ const lacWorkflowEdges: WorkflowEdge[] = [
   { id: 'edge_4', source: 'node_review', target: 'node_condition' },
   { id: 'edge_5', source: 'node_condition', target: 'node_process', label: '通过', conditionId: 'cond_approve' },
   { id: 'edge_6', source: 'node_condition', target: 'node_rejected', label: '驳回', conditionId: 'cond_reject' },
-  { id: 'edge_7', source: 'node_process', target: 'node_complete' },
-  { id: 'edge_8', source: 'node_complete', target: 'node_closed', label: '确认完成' },
-  { id: 'edge_9', source: 'node_complete', target: 'node_process', label: '继续处理' },
+  { id: 'edge_7', source: 'node_process', target: 'node_claim_method_condition' },
+  { id: 'edge_8', source: 'node_claim_method_condition', target: 'node_generate_return_goods', label: '需要回货', conditionId: 'cond_need_return' },
+  { id: 'edge_9', source: 'node_claim_method_condition', target: 'node_complete', label: '无需回货', conditionId: 'cond_no_return' },
+  { id: 'edge_10', source: 'node_generate_return_goods', target: 'node_return_goods_flow' },
+  { id: 'edge_11', source: 'node_return_goods_flow', target: 'node_complete', label: '回货完成' },
+  { id: 'edge_12', source: 'node_complete', target: 'node_closed', label: '确认完成' },
+  { id: 'edge_13', source: 'node_complete', target: 'node_process', label: '继续处理' },
 ]
 
 // LAC工作流事件配置
@@ -851,6 +975,25 @@ const lacFlowEvents: FlowEvent[] = [
         config: {
           recipients: ['dealer'],
           template: '您的索赔已处理完成，请确认',
+        },
+      },
+    ],
+  },
+  // 生成回货单事件
+  {
+    id: 'evt_generate_return_goods',
+    type: 'submit',
+    name: '生成回货单',
+    description: '根据索赔单生成回货单，用于配件回货管理',
+    enabled: true,
+    fromStatus: ['processing', 'replied'],
+    permissions: ['engineer', 'admin', 'role_admin', 'role_engineer'],
+    actions: [
+      {
+        type: 'notify',
+        config: {
+          recipients: ['dealer', 'warehouse'],
+          template: '回货单已生成，请打印并准备发货',
         },
       },
     ],
