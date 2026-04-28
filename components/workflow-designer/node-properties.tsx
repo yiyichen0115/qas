@@ -315,7 +315,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
   const approverTypes: { value: ApproverType; label: string; description: string }[] = [
     { value: 'user', label: '指定用户', description: '选择具体的用户' },
     { value: 'role', label: '指定角色', description: '该角色下的所有用户' },
-    { value: 'department', label: '部门负责人', description: '部门负责人处理' },
+    { value: 'department', label: '部门��责人', description: '部门负责人处理' },
     { value: 'initiator', label: '��起人', description: '单据创建者' },
     { value: 'superior', label: '直属上级', description: '发起人的上级' },
   ]
@@ -997,8 +997,8 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
 
       {/* 字段权限配置弹窗 */}
       <Dialog open={fieldPermissionDialogOpen} onOpenChange={setFieldPermissionDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl w-[90vw] h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
               字段编辑权限配置
@@ -1009,8 +1009,8 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
           </DialogHeader>
           
           {/* 工具栏 */}
-          <div className="flex items-center justify-between py-3 border-b border-border">
-            <div className="flex items-center gap-2">
+          <div className="flex-shrink-0 flex items-center justify-between py-3 border-b border-border">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* 搜索框 */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1018,7 +1018,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                   placeholder="搜索字段..."
                   value={fieldSearchKeyword}
                   onChange={(e) => setFieldSearchKeyword(e.target.value)}
-                  className="pl-9 h-8 w-56"
+                  className="pl-9 h-8 w-48"
                 />
               </div>
               
@@ -1037,7 +1037,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
             </div>
             
             {/* 批量操作按钮 */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <Button
                 variant="outline"
                 size="sm"
@@ -1057,9 +1057,9 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
             </div>
           </div>
           
-          {/* 字段列表 */}
-          <ScrollArea className="flex-1 -mx-6 px-6">
-            <div className="space-y-4 py-4">
+          {/* 字段列表 - 固定高度滚动区域 */}
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-4 py-4 px-1">
               {getGroupedFields().map((group, groupIndex) => {
                 const filteredFields = filterFields(group.fields)
                 if (filteredFields.length === 0) return null
@@ -1069,75 +1069,77 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                     {/* 分组标题 */}
                     <div className="flex items-center gap-2 sticky top-0 bg-background py-1 z-10">
                       <div className="h-4 w-1 rounded-full bg-primary" />
-                      <span className="text-sm font-medium">{group.name}</span>
-                      <span className="text-xs text-muted-foreground">({filteredFields.length})</span>
+                      <span className="text-sm font-medium truncate">{group.name}</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">({filteredFields.length})</span>
                     </div>
                     
                     {/* 字段表格 */}
                     <div className="rounded-lg border border-border overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/30">
-                            <TableHead className="w-[200px] text-xs">字段名称</TableHead>
-                            <TableHead className="w-[150px] text-xs">字段代码</TableHead>
-                            <TableHead className="w-[100px] text-xs">字段类型</TableHead>
-                            <TableHead className="w-[80px] text-xs text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Eye className="h-3 w-3" />
-                                可见
-                              </div>
-                            </TableHead>
-                            <TableHead className="w-[80px] text-xs text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                <Pencil className="h-3 w-3" />
-                                可编辑
-                              </div>
-                            </TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredFields.map((field) => {
-                            const fieldPerm = tempFieldPermissions[field.id] || { visible: true, editable: false }
-                            return (
-                              <TableRow key={field.id} className="hover:bg-muted/30">
-                                <TableCell className="py-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm">{field.label}</span>
-                                    {field.required && (
-                                      <span className="text-destructive text-xs">*</span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                    {field.name}
-                                  </code>
-                                </TableCell>
-                                <TableCell className="py-2">
-                                  <Badge variant="outline" className="text-xs font-normal">
-                                    {field.type}
-                                  </Badge>
-                                </TableCell>
-                                <TableCell className="py-2 text-center">
-                                  <Checkbox
-                                    checked={fieldPerm.visible}
-                                    onCheckedChange={() => toggleFieldPermission(field.id, 'visible')}
-                                    className="mx-auto"
-                                  />
-                                </TableCell>
-                                <TableCell className="py-2 text-center">
-                                  <Checkbox
-                                    checked={fieldPerm.editable}
-                                    onCheckedChange={() => toggleFieldPermission(field.id, 'editable')}
-                                    disabled={!fieldPerm.visible}
-                                    className="mx-auto"
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
-                        </TableBody>
-                      </Table>
+                      <div className="overflow-x-auto">
+                        <Table className="min-w-[600px]">
+                          <TableHeader>
+                            <TableRow className="bg-muted/30">
+                              <TableHead className="w-[180px] text-xs whitespace-nowrap">字段名称</TableHead>
+                              <TableHead className="w-[140px] text-xs whitespace-nowrap">字段代码</TableHead>
+                              <TableHead className="w-[90px] text-xs whitespace-nowrap">字段类型</TableHead>
+                              <TableHead className="w-[70px] text-xs text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Eye className="h-3 w-3" />
+                                  可见
+                                </div>
+                              </TableHead>
+                              <TableHead className="w-[70px] text-xs text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Pencil className="h-3 w-3" />
+                                  可编辑
+                                </div>
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredFields.map((field) => {
+                              const fieldPerm = tempFieldPermissions[field.id] || { visible: true, editable: false }
+                              return (
+                                <TableRow key={field.id} className="hover:bg-muted/30">
+                                  <TableCell className="py-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm truncate max-w-[150px]" title={field.label}>{field.label}</span>
+                                      {field.required && (
+                                        <span className="text-destructive text-xs flex-shrink-0">*</span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate block max-w-[120px]" title={field.name}>
+                                      {field.name}
+                                    </code>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <Badge variant="outline" className="text-xs font-normal whitespace-nowrap">
+                                      {field.type}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="py-2 text-center">
+                                    <Checkbox
+                                      checked={fieldPerm.visible}
+                                      onCheckedChange={() => toggleFieldPermission(field.id, 'visible')}
+                                      className="mx-auto"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="py-2 text-center">
+                                    <Checkbox
+                                      checked={fieldPerm.editable}
+                                      onCheckedChange={() => toggleFieldPermission(field.id, 'editable')}
+                                      disabled={!fieldPerm.visible}
+                                      className="mx-auto"
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })}
+                            </TableBody>
+                        </Table>
+                      </div>
                     </div>
                   </div>
                 )
@@ -1153,7 +1155,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
             </div>
           </ScrollArea>
           
-          <DialogFooter className="border-t border-border pt-4">
+          <DialogFooter className="flex-shrink-0 border-t border-border pt-4">
             <Button variant="outline" onClick={() => setFieldPermissionDialogOpen(false)}>
               取消
             </Button>
