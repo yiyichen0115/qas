@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Eye, Printer, Package, Plus, ExternalLink, Loader2 } from 'lucide-react'
+import { Eye, Printer, Package, ExternalLink, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -20,7 +20,6 @@ interface RelatedDocumentsListProps {
   config: RelatedDocumentConfig
   sourceValue: string // 源字段的值（如索赔单号）
   documentId: string // 当前单据ID
-  onCreateClick?: () => void // 创建回货单的回调
 }
 
 // 状态配置
@@ -55,8 +54,7 @@ const auditResultConfig: Record<string, { label: string; color: string }> = {
 export function RelatedDocumentsList({ 
   config, 
   sourceValue, 
-  documentId,
-  onCreateClick 
+  documentId
 }: RelatedDocumentsListProps) {
   const router = useRouter()
   const [relatedDocs, setRelatedDocs] = useState<Document[]>([])
@@ -155,12 +153,6 @@ export function RelatedDocumentsList({
             </Badge>
           )}
         </div>
-        {config.allowCreate && onCreateClick && (
-          <Button variant="outline" size="sm" onClick={onCreateClick}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            {config.createButtonText || '新建'}
-          </Button>
-        )}
       </div>
 
       {/* 列表 */}
@@ -171,12 +163,6 @@ export function RelatedDocumentsList({
             <p className="mt-2 text-sm text-muted-foreground">
               {config.emptyText || '暂无关联单据'}
             </p>
-            {config.allowCreate && onCreateClick && (
-              <Button variant="link" size="sm" className="mt-2" onClick={onCreateClick}>
-                <Plus className="mr-1 h-4 w-4" />
-                {config.createButtonText || '新建'}
-              </Button>
-            )}
           </div>
         </div>
       ) : (
