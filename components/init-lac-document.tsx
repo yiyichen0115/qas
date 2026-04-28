@@ -600,8 +600,8 @@ const lacDocumentType: DocumentType = {
       type: 'primary',
       icon: 'PackageCheck',
       position: 'footer',
-      visibleStatus: ['replied', 'processing'],
-      visibleRoles: ['engineer', 'admin'],
+      visibleStatus: ['draft', 'pending', 'replied', 'processing', 'approved'],
+      visibleRoles: ['engineer', 'admin', 'role_engineer', 'role_admin'],
       actionType: 'generate_doc',
       generateDocTypeId: 'doctype_return_goods',
       fieldMapping: {
@@ -1109,8 +1109,8 @@ export function InitLacDocument() {
       // 不存在则创建
       documentTypeStorage.save(lacDocumentType)
       console.log('LAC单据类型已自动创建')
-    } else if ((existingLac.fields?.length || 0) < lacDocumentType.fields.length) {
-      // 如果字段数量少于配置，更新字段
+    } else {
+      // 总是更新字段和按钮配置
       const updatedType = {
         ...existingLac,
         fields: lacDocumentType.fields,
@@ -1120,7 +1120,7 @@ export function InitLacDocument() {
         updatedAt: new Date().toISOString(),
       }
       documentTypeStorage.save(updatedType)
-      console.log('LAC单据类型已更新字段配置')
+      console.log('LAC单据类型已更新配置')
     }
     
     // 检查是否已存在LAC工作流

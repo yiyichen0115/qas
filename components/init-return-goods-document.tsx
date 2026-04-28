@@ -1089,19 +1089,21 @@ export function InitReturnGoodsDocument() {
       // 不存在则创建
       documentTypeStorage.save(returnGoodsDocumentType)
       console.log('回货单单据类型已自动创建')
-    } else if ((existingReturnGoods.fields?.length || 0) < returnGoodsDocumentType.fields.length) {
-      // 如果字段数量少于配置，更新字段
+    } else {
+      // 总是更新配置，确保actionButtons等属性是最新的
       const updatedType = {
         ...existingReturnGoods,
         fields: returnGoodsDocumentType.fields,
         actionButtons: returnGoodsDocumentType.actionButtons,
+        allowManualCreate: returnGoodsDocumentType.allowManualCreate,
+        parentDocTypeId: returnGoodsDocumentType.parentDocTypeId,
         enableReply: true,
         numberRule: returnGoodsDocumentType.numberRule,
         description: returnGoodsDocumentType.description,
         updatedAt: new Date().toISOString(),
       }
       documentTypeStorage.save(updatedType)
-      console.log('回货单单据类型已更新字段配置')
+      console.log('回货单单据类型已更新配置')
     }
     
     // 检查是否已存在回货单工作流
@@ -1109,7 +1111,7 @@ export function InitReturnGoodsDocument() {
     const existingReturnGoodsWorkflow = existingWorkflows.find(w => w.id === 'workflow_return_goods' || w.categoryId === 'doctype_return_goods')
     
     if (!existingReturnGoodsWorkflow) {
-      // 不存在则创建工作流
+      // 不存在则创���工作流
       workflowStorage.save(returnGoodsWorkflow)
       console.log('回货单工作流已自动创建')
     } else {

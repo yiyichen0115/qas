@@ -545,7 +545,18 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   // 生成关联单据（如从LAC生成回货单）
   const handleGenerateDocument = async (button: ActionButton) => {
     const user = getEffectiveUser()
-    if (!document || !user || !button.generateDocTypeId) return
+    if (!document) {
+      alert('无法生成单据：当前单据不存在')
+      return
+    }
+    if (!user) {
+      alert('无法生成单据：请先登录')
+      return
+    }
+    if (!button.generateDocTypeId) {
+      alert(`无法生成单据：按钮"${button.name}"未配置目标单据类型(generateDocTypeId)`)
+      return
+    }
 
     // 确认操作
     if (button.confirmRequired && button.confirmMessage) {
@@ -557,7 +568,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       // 获取目标单据类型
       const targetDocType = documentTypeStorage.getById(button.generateDocTypeId)
       if (!targetDocType) {
-        alert('目标单据类型不存在')
+        alert(`无法生成单据：目标单据类型"${button.generateDocTypeId}"不存在，请确保已初始化回货单单据类型`)
         return
       }
 
@@ -603,6 +614,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
       // 提示用户并跳转
       alert(`已成功生成${targetDocType.name}：${newDocNumber}`)
       router.push(`/runtime/documents/${newDocument.id}`)
+    } catch (error) {
+      alert(`生成单据失败：${error instanceof Error ? error.message : '未知错误'}`)
     } finally {
       setIsSubmitting(false)
     }
