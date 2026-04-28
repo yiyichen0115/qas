@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
   Clock, User, FileText, Loader2, Plus,
-  Paperclip, X, Image as ImageIcon, File
+  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { RelatedDocumentsList } from '@/components/related-documents-list'
@@ -80,6 +88,11 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
+  
+  // 字段编辑状态
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
+  const [editingFieldValue, setEditingFieldValue] = useState<unknown>(null)
+  const [isSavingField, setIsSavingField] = useState(false)
 
   useEffect(() => {
     setIsLoading(true)
@@ -297,6 +310,44 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
 
     return { visible: true, editable: false }
+  }
+
+  // 开始编辑字段
+  const startEditField = (fieldId: string, fieldName: string) => {
+    if (!document) return
+    setEditingFieldId(fieldId)
+    setEditingFieldValue(document.formData[fieldName])
+  }
+
+  // 取消编辑字段
+  const cancelEditField = () => {
+    setEditingFieldId(null)
+    setEditingFieldValue(null)
+  }
+
+  // 保存字段编辑
+  const saveFieldEdit = async (fieldName: string) => {
+    if (!document) return
+    
+    setIsSavingField(true)
+    try {
+      // 更新文档数据
+      const updatedDoc: Document = {
+        ...document,
+        formData: {
+          ...document.formData,
+          [fieldName]: editingFieldValue,
+        },
+        updatedAt: new Date().toISOString(),
+      }
+      
+      documentStorage.save(updatedDoc)
+      setDocument(updatedDoc)
+      setEditingFieldId(null)
+      setEditingFieldValue(null)
+    } finally {
+      setIsSavingField(false)
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -726,27 +777,202 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                               )
                             }
                             
+                            // 检查是否正在编辑该字段
+                            const isEditing = editingFieldId === field.id
+                            
+                            // 渲染编辑控件
+                            const renderEditControl = () => {
+                              switch (field.type) {
+                                case 'text':
+                                  return (
+                                    <Input
+                                      value={String(editingFieldValue || '')}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'number':
+                                  return (
+                                    <Input
+                                      type="number"
+                                      value={editingFieldValue as number || ''}
+                                      onChange={(e) => setEditingFieldValue(e.target.value ? Number(e.target.value) : '')}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'textarea':
+                                case 'richtext':
+                                  return (
+                                    <Textarea
+                                      value={String(editingFieldValue || '')}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="text-sm min-h-[80px]"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'select':
+                                case 'radio':
+                                  return (
+                                    <Select
+                                      value={String(editingFieldValue || '')}
+                                      onValueChange={(v) => setEditingFieldValue(v)}
+                                    >
+                                      <SelectTrigger className="h-8 text-sm">
+                                        <SelectValue placeholder="请选择" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {field.options?.map(opt => (
+                                          <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )
+                                case 'switch':
+                                  return (
+                                    <Switch
+                                      checked={Boolean(editingFieldValue)}
+                                      onCheckedChange={(checked) => setEditingFieldValue(checked)}
+                                    />
+                                  )
+                                case 'date':
+                                  return (
+                                    <Input
+                                      type="date"
+                                      value={editingFieldValue ? String(editingFieldValue).split('T')[0] : ''}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                case 'datetime':
+                                  return (
+                                    <Input
+                                      type="datetime-local"
+                                      value={editingFieldValue ? String(editingFieldValue).slice(0, 16) : ''}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                                default:
+                                  return (
+                                    <Input
+                                      value={String(editingFieldValue || '')}
+                                      onChange={(e) => setEditingFieldValue(e.target.value)}
+                                      className="h-8 text-sm"
+                                      autoFocus
+                                    />
+                                  )
+                              }
+                            }
+                            
                             // 多行文本特殊处理
                             if (field.type === 'textarea' || field.type === 'richtext') {
                               return (
                                 <div key={field.id} className={`${getWidthClass()}`}>
-                                  <div className="text-sm text-muted-foreground mb-2">{field.label}</div>
-                                  <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
-                                    {displayValue}
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm text-muted-foreground">{field.label}</span>
+                                    {fieldPerm.editable && !isEditing && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 px-2 text-xs text-primary hover:text-primary"
+                                        onClick={() => startEditField(field.id, field.name)}
+                                      >
+                                        <Pencil className="h-3 w-3 mr-1" />
+                                        编辑
+                                      </Button>
+                                    )}
                                   </div>
+                                  {isEditing ? (
+                                    <div className="space-y-2">
+                                      {renderEditControl()}
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={() => saveFieldEdit(field.name)}
+                                          disabled={isSavingField}
+                                        >
+                                          {isSavingField ? (
+                                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          ) : (
+                                            <Check className="h-3 w-3 mr-1" />
+                                          )}
+                                          保存
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={cancelEditField}
+                                        >
+                                          取消
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-lg bg-muted/30 p-3 text-sm min-h-[60px] whitespace-pre-wrap">
+                                      {displayValue}
+                                    </div>
+                                  )}
                                 </div>
                               )
                             }
 
                             return (
-                              <div key={field.id} className={`flex items-baseline gap-2 ${getWidthClass()}`}>
-                                <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
-                                <span className="text-sm font-medium truncate">
-                                  {displayValue}
-                                  {!fieldPerm.editable && canEdit && (
-                                    <span className="ml-1 text-xs text-muted-foreground">(只读)</span>
-                                  )}
-                                </span>
+                              <div key={field.id} className={`group ${getWidthClass()}`}>
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <span className="text-sm text-muted-foreground">{field.label}</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1">
+                                        {renderEditControl()}
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        className="h-8 px-2"
+                                        onClick={() => saveFieldEdit(field.name)}
+                                        disabled={isSavingField}
+                                      >
+                                        {isSavingField ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Check className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 px-2"
+                                        onClick={cancelEditField}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-sm text-muted-foreground shrink-0">{field.label}</span>
+                                    <span className="text-sm font-medium truncate flex-1">
+                                      {displayValue}
+                                    </span>
+                                    {fieldPerm.editable && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-primary hover:text-primary"
+                                        onClick={() => startEditField(field.id, field.name)}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )
                           })}

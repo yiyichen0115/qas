@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -15,9 +16,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Settings, Plus, Info, Users, Shield, List, Edit3 } from 'lucide-react'
+import { Settings, Plus, Info, Users, Shield, List, Edit3, Eye, Pencil, Check, X, Search } from 'lucide-react'
 import { useAppStore } from '@/stores/app-store'
 
 interface NodePropertiesProps {
@@ -50,6 +68,12 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
   const [currentForm, setCurrentForm] = useState<DocumentType | null>(null)
   const [expandedFieldConfigs, setExpandedFieldConfigs] = useState<Record<string, boolean>>({})
   const [selectedFields, setSelectedFields] = useState<Record<string, FormField[]>>({})
+  // 字段权限配置弹窗状态
+  const [fieldPermissionDialogOpen, setFieldPermissionDialogOpen] = useState(false)
+  const [currentEditingRoleId, setCurrentEditingRoleId] = useState<string | null>(null)
+  const [fieldSearchKeyword, setFieldSearchKeyword] = useState('')
+  // 临时存储弹窗内的字段权限配置（点击保存后才真正应用）
+  const [tempFieldPermissions, setTempFieldPermissions] = useState<Record<string, { visible: boolean; editable: boolean }>>({})
 
   // 从父组件获取当前流程
   const parentWorkflowId = typeof window !== 'undefined' ? (window as any).currentWorkflowId : null
@@ -154,6 +178,105 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
     updateData({ permissions: updatedPermissions })
   }
 
+  // 打开字段权限配置弹窗
+  const openFieldPermissionDialog = (roleId: string) => {
+    const permission = localData.permissions?.find(p => p.roleId === roleId)
+    setCurrentEditingRoleId(roleId)
+    setTempFieldPermissions(permission?.fieldPermissions || {})
+    setFieldSearchKeyword('')
+    setFieldPermissionDialogOpen(true)
+  }
+
+  // 保存弹窗中的字段权限配置
+  const saveFieldPermissions = () => {
+    if (currentEditingRoleId) {
+      updatePermissionField(currentEditingRoleId, tempFieldPermissions)
+    }
+    setFieldPermissionDialogOpen(false)
+    setCurrentEditingRoleId(null)
+  }
+
+  // 切换单个字段的权限
+  const toggleFieldPermission = (fieldId: string, permType: 'visible' | 'editable') => {
+    setTempFieldPermissions(prev => {
+      const current = prev[fieldId] || { visible: true, editable: false }
+      if (permType === 'editable') {
+        // 如果设置为可编辑，则自动设置为可见
+        return { ...prev, [fieldId]: { ...current, editable: !current.editable, visible: !current.editable ? true : current.visible } }
+      }
+      // 如果取消可见，则也取消可编辑
+      return { ...prev, [fieldId]: { ...current, visible: !current.visible, editable: !current.visible ? false : current.editable } }
+    })
+  }
+
+  // 批量设置字段权限
+  const batchSetFieldPermissions = (action: 'all_visible' | 'all_editable' | 'clear_editable' | 'clear_all') => {
+    if (!currentForm) return
+    const fields = currentForm.fields.filter(f => !f.hidden && f.type !== 'divider' && f.type !== 'description')
+    const newPermissions: Record<string, { visible: boolean; editable: boolean }> = {}
+    
+    fields.forEach(field => {
+      switch (action) {
+        case 'all_visible':
+          newPermissions[field.id] = { visible: true, editable: tempFieldPermissions[field.id]?.editable || false }
+          break
+        case 'all_editable':
+          newPermissions[field.id] = { visible: true, editable: true }
+          break
+        case 'clear_editable':
+          newPermissions[field.id] = { visible: tempFieldPermissions[field.id]?.visible || true, editable: false }
+          break
+        case 'clear_all':
+          newPermissions[field.id] = { visible: false, editable: false }
+          break
+      }
+    })
+    
+    setTempFieldPermissions(newPermissions)
+  }
+
+  // 获取当前角色的字段权限统计
+  const getFieldPermissionStats = () => {
+    if (!currentForm) return { total: 0, visible: 0, editable: 0 }
+    const fields = currentForm.fields.filter(f => !f.hidden && f.type !== 'divider' && f.type !== 'description')
+    const visible = fields.filter(f => tempFieldPermissions[f.id]?.visible).length
+    const editable = fields.filter(f => tempFieldPermissions[f.id]?.editable).length
+    return { total: fields.length, visible, editable }
+  }
+
+  // 按分组显示字段（根据 divider 分组）
+  const getGroupedFields = () => {
+    if (!currentForm) return []
+    const groups: { name: string; fields: FormField[] }[] = []
+    let currentGroup: { name: string; fields: FormField[] } = { name: '基础信息', fields: [] }
+    
+    currentForm.fields.forEach(field => {
+      if (field.type === 'divider') {
+        if (currentGroup.fields.length > 0) {
+          groups.push(currentGroup)
+        }
+        currentGroup = { name: field.label, fields: [] }
+      } else if (!field.hidden && field.type !== 'description') {
+        currentGroup.fields.push(field)
+      }
+    })
+    
+    if (currentGroup.fields.length > 0) {
+      groups.push(currentGroup)
+    }
+    
+    return groups
+  }
+
+  // 过滤字段
+  const filterFields = (fields: FormField[]) => {
+    if (!fieldSearchKeyword) return fields
+    return fields.filter(f => 
+      f.label.toLowerCase().includes(fieldSearchKeyword.toLowerCase()) ||
+      f.name.toLowerCase().includes(fieldSearchKeyword.toLowerCase())
+    )
+  }
+
   const nodeType = node.type as NodeType
 
   // 需要配置处理人的节点类型
@@ -205,7 +328,7 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
         <TabsContent value="basic" className="flex-1 overflow-y-auto p-3">
           <FieldGroup className="space-y-3">
             <Field>
-              <FieldLabel className="text-xs">节点���称</FieldLabel>
+              <FieldLabel className="text-xs">节点�����称</FieldLabel>
               <Input
                 value={localData.label}
                 onChange={(e) => updateData({ label: e.target.value })}
@@ -768,133 +891,29 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                           </div>
                         </div>
 
-                        {/* 字段权限配置按钮 */}
-                        {permission?.canEdit && (
+                        {/* 字段权限配置按钮 - 打开弹窗 */}
+                        {permission?.canEdit && currentForm && (
                           <div className="pt-2 border-t border-border">
                             <button
                               className="flex w-full items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={() => {
-                                setExpandedFieldConfigs(prev => ({
-                                  ...prev,
-                                  [role.id]: !prev[role.id]
-                                }))
-                                if (!expandedFieldConfigs[role.id]) {
-                                  const roleSelectedFields = currentForm?.fields.filter(field =>
-                                    permission?.fieldPermissions?.[field.id]?.editable
-                                  ) || []
-                                  setSelectedFields(prev => ({
-                                    ...prev,
-                                    [role.id]: roleSelectedFields
-                                  }))
-                                }
-                              }}
+                              onClick={() => openFieldPermissionDialog(role.id)}
                             >
                               <div className="flex items-center gap-2">
-                                <List className="h-3.5 w-3.5" />
-                                <span>字段编辑权限</span>
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span>配置字段编辑权限</span>
                               </div>
-                              <Edit3 className={`h-3.5 w-3.5 transition-transform ${expandedFieldConfigs[role.id] ? 'rotate-45' : ''}`} />
+                              <div className="flex items-center gap-1">
+                                {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length > 0 && (
+                                  <Badge variant="secondary" className="h-5 text-[10px]">
+                                    {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length} 个可编辑
+                                  </Badge>
+                                )}
+                                <Edit3 className="h-3.5 w-3.5" />
+                              </div>
                             </button>
                           </div>
                         )}
                       </div>
-
-                      {/* 字段权限配置面板 - 参考图片复型表单样式 */}
-                      {expandedFieldConfigs[role.id] && currentForm && (
-                        <div className="border-t border-border bg-muted/20 p-3">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium">选择可编辑字段</span>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => {
-                                  const allFields = currentForm.fields.filter(f => !f.hidden)
-                                  const newPermissions = { ...permission?.fieldPermissions || {} }
-                                  allFields.forEach(field => {
-                                    newPermissions[field.id] = { visible: true, editable: true }
-                                  })
-                                  updatePermissionField(role.id, newPermissions)
-                                  setSelectedFields(prev => ({
-                                    ...prev,
-                                    [role.id]: allFields
-                                  }))
-                                }}
-                              >
-                                全选
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={() => {
-                                  const newPermissions = { ...permission?.fieldPermissions || {} }
-                                  Object.keys(newPermissions).forEach(key => {
-                                    newPermissions[key] = { visible: true, editable: false }
-                                  })
-                                  updatePermissionField(role.id, newPermissions)
-                                  setSelectedFields(prev => ({
-                                    ...prev,
-                                    [role.id]: []
-                                  }))
-                                }}
-                              >
-                                清空
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* 字段列表 - 三列网格布局 */}
-                          <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto">
-                            {currentForm.fields
-                              .filter(field => !field.hidden && field.type !== 'divider' && field.type !== 'description')
-                              .map((field) => {
-                                const roleSelectedFields = selectedFields[role.id] || []
-                                const isSelected = roleSelectedFields.some(f => f.id === field.id)
-
-                                return (
-                                  <label
-                                    key={field.id}
-                                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded text-xs cursor-pointer transition-colors ${
-                                      isSelected 
-                                        ? 'bg-primary/10 text-primary border border-primary/20' 
-                                        : 'bg-card border border-border hover:bg-muted/50'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          const newSelected = [...roleSelectedFields, field]
-                                          setSelectedFields(prev => ({
-                                            ...prev,
-                                            [role.id]: newSelected
-                                          }))
-                                          const newPermissions = { ...permission?.fieldPermissions || {} }
-                                          newPermissions[field.id] = { visible: true, editable: true }
-                                          updatePermissionField(role.id, newPermissions)
-                                        } else {
-                                          const newSelected = roleSelectedFields.filter(f => f.id !== field.id)
-                                          setSelectedFields(prev => ({
-                                            ...prev,
-                                            [role.id]: newSelected
-                                          }))
-                                          const newPermissions = { ...permission?.fieldPermissions || {} }
-                                          delete newPermissions[field.id]
-                                          updatePermissionField(role.id, newPermissions)
-                                        }
-                                      }}
-                                      className="accent-primary h-3.5 w-3.5"
-                                    />
-                                    <span className="truncate">{field.label}</span>
-                                  </label>
-                                )
-                              })}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )
                 })}
@@ -903,6 +922,176 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
           </FieldGroup>
         </TabsContent>
       </Tabs>
+
+      {/* 字段权限配置弹窗 */}
+      <Dialog open={fieldPermissionDialogOpen} onOpenChange={setFieldPermissionDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              字段编辑权限配置
+            </DialogTitle>
+            <DialogDescription>
+              为「{roles.find(r => r.id === currentEditingRoleId)?.name}」配置在该节点可编辑的字段
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* 工具栏 */}
+          <div className="flex items-center justify-between py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              {/* 搜索框 */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索字段..."
+                  value={fieldSearchKeyword}
+                  onChange={(e) => setFieldSearchKeyword(e.target.value)}
+                  className="pl-9 h-8 w-56"
+                />
+              </div>
+              
+              {/* 统计信息 */}
+              <div className="flex items-center gap-3 text-xs text-muted-foreground ml-2">
+                <span>共 {getFieldPermissionStats().total} 个字段</span>
+                <span className="flex items-center gap-1">
+                  <Eye className="h-3 w-3" />
+                  {getFieldPermissionStats().visible} 可见
+                </span>
+                <span className="flex items-center gap-1">
+                  <Pencil className="h-3 w-3" />
+                  {getFieldPermissionStats().editable} 可编辑
+                </span>
+              </div>
+            </div>
+            
+            {/* 批量操作按钮 */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => batchSetFieldPermissions('all_editable')}
+              >
+                全部可编辑
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => batchSetFieldPermissions('clear_editable')}
+              >
+                清除编辑权限
+              </Button>
+            </div>
+          </div>
+          
+          {/* 字段列表 */}
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="space-y-4 py-4">
+              {getGroupedFields().map((group, groupIndex) => {
+                const filteredFields = filterFields(group.fields)
+                if (filteredFields.length === 0) return null
+                
+                return (
+                  <div key={groupIndex} className="space-y-2">
+                    {/* 分组标题 */}
+                    <div className="flex items-center gap-2 sticky top-0 bg-background py-1 z-10">
+                      <div className="h-4 w-1 rounded-full bg-primary" />
+                      <span className="text-sm font-medium">{group.name}</span>
+                      <span className="text-xs text-muted-foreground">({filteredFields.length})</span>
+                    </div>
+                    
+                    {/* 字段表格 */}
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/30">
+                            <TableHead className="w-[200px] text-xs">字段名称</TableHead>
+                            <TableHead className="w-[150px] text-xs">字段代码</TableHead>
+                            <TableHead className="w-[100px] text-xs">字段类型</TableHead>
+                            <TableHead className="w-[80px] text-xs text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Eye className="h-3 w-3" />
+                                可见
+                              </div>
+                            </TableHead>
+                            <TableHead className="w-[80px] text-xs text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Pencil className="h-3 w-3" />
+                                可编辑
+                              </div>
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredFields.map((field) => {
+                            const fieldPerm = tempFieldPermissions[field.id] || { visible: true, editable: false }
+                            return (
+                              <TableRow key={field.id} className="hover:bg-muted/30">
+                                <TableCell className="py-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">{field.label}</span>
+                                    {field.required && (
+                                      <span className="text-destructive text-xs">*</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                    {field.name}
+                                  </code>
+                                </TableCell>
+                                <TableCell className="py-2">
+                                  <Badge variant="outline" className="text-xs font-normal">
+                                    {field.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="py-2 text-center">
+                                  <Checkbox
+                                    checked={fieldPerm.visible}
+                                    onCheckedChange={() => toggleFieldPermission(field.id, 'visible')}
+                                    className="mx-auto"
+                                  />
+                                </TableCell>
+                                <TableCell className="py-2 text-center">
+                                  <Checkbox
+                                    checked={fieldPerm.editable}
+                                    onCheckedChange={() => toggleFieldPermission(field.id, 'editable')}
+                                    disabled={!fieldPerm.visible}
+                                    className="mx-auto"
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )
+              })}
+              
+              {/* 无搜索结果提示 */}
+              {fieldSearchKeyword && getGroupedFields().every(g => filterFields(g.fields).length === 0) && (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>未找到匹配「{fieldSearchKeyword}」的字段</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="border-t border-border pt-4">
+            <Button variant="outline" onClick={() => setFieldPermissionDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={saveFieldPermissions}>
+              <Check className="h-4 w-4 mr-1" />
+              保存配置
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
