@@ -128,6 +128,44 @@ export const dealers: Dealer[] = [
   },
 ]
 
+// 配件/物料数据
+export interface Part {
+  id: string
+  code: string // 物料图号/配件编码
+  name: string // 物料名称
+  category: string // 分类
+  unit: string // 单位
+  price: number // 单价
+  enabled: boolean
+}
+
+export const parts: Part[] = [
+  { id: 'part_1', code: '26136411', name: '方向盘开关总成', category: '电器系统', unit: '个', price: 128.50, enabled: true },
+  { id: 'part_2', code: '23746055P', name: '顶盖总成', category: '车身附件', unit: '个', price: 856.00, enabled: true },
+  { id: 'part_3', code: '250755456', name: '前保险杠', category: '车身附件', unit: '个', price: 320.00, enabled: true },
+  { id: 'part_4', code: '24551890', name: '后视镜左', category: '车身附件', unit: '个', price: 185.00, enabled: true },
+  { id: 'part_5', code: '24551891', name: '后视镜右', category: '车身附件', unit: '个', price: 185.00, enabled: true },
+  { id: 'part_6', code: '23884562', name: '前大灯左', category: '电器系统', unit: '个', price: 420.00, enabled: true },
+  { id: 'part_7', code: '23884563', name: '前大灯右', category: '电器系统', unit: '个', price: 420.00, enabled: true },
+  { id: 'part_8', code: '24109876', name: '雨刮电机', category: '电器系统', unit: '个', price: 265.00, enabled: true },
+  { id: 'part_9', code: '25789012', name: '空调压缩机', category: '空调系统', unit: '个', price: 1580.00, enabled: true },
+  { id: 'part_10', code: '26345678', name: '电池管理系统(BMS)', category: 'BMS系统', unit: '套', price: 2350.00, enabled: true },
+  { id: 'part_11', code: '27890123', name: '驱动电机总成', category: '动力系统', unit: '个', price: 5680.00, enabled: true },
+  { id: 'part_12', code: '28456789', name: '充电口总成', category: '充电系统', unit: '个', price: 356.00, enabled: true },
+]
+
+// 根据配件编码获取配件信息
+export function getPartByCode(code: string): Part | undefined {
+  return parts.find(p => p.code === code && p.enabled)
+}
+
+// 获取配件选项列表
+export function getPartOptions(): { label: string; value: string; data: Part }[] {
+  return parts
+    .filter(p => p.enabled)
+    .map(p => ({ label: `${p.code} - ${p.name}`, value: p.code, data: p }))
+}
+
 // 故障码库
 export interface FaultCode {
   id: string
