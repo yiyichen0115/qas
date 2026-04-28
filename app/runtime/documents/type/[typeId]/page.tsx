@@ -114,8 +114,16 @@ export default function DocumentTypeListPage({ params }: PageProps) {
   }
 
   const handleCreateNew = () => {
+    // 检查是否允许手动创建
+    if (documentType?.allowManualCreate === false) {
+      alert('此单据类型不支持手动创建，只能通过关联流程自动生成')
+      return
+    }
     router.push(`/runtime/documents/create?documentTypeId=${typeId}`)
   }
+
+  // 是否允许手动创建
+  const canManualCreate = documentType?.allowManualCreate !== false
 
   const IconComponent = documentType?.icon ? iconMap[documentType.icon] || FolderOpen : FolderOpen
 
@@ -197,10 +205,12 @@ export default function DocumentTypeListPage({ params }: PageProps) {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回
               </Button>
-              <Button onClick={handleCreateNew}>
-                <Plus className="mr-2 h-4 w-4" />
-                新建{documentType.name}
-              </Button>
+              {canManualCreate && (
+                <Button onClick={handleCreateNew}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  新建{documentType.name}
+                </Button>
+              )}
             </div>
           </div>
 
@@ -226,13 +236,19 @@ export default function DocumentTypeListPage({ params }: PageProps) {
                           <IconComponent className="h-6 w-6 text-muted-foreground" />
                         </div>
                         <p className="mt-4 text-muted-foreground">暂无{documentType.name}单据</p>
-                        <Button 
-                          className="mt-4" 
-                          onClick={handleCreateNew}
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          创建第一个{documentType.name}
-                        </Button>
+                        {canManualCreate ? (
+                          <Button 
+                            className="mt-4" 
+                            onClick={handleCreateNew}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            创建第一个{documentType.name}
+                          </Button>
+                        ) : (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            此单据类型仅支持通过关联流程自动生成
+                          </p>
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (

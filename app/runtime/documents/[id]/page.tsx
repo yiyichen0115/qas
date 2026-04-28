@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { 
   ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
   Clock, User, FileText, Loader2, Plus,
-  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check, RotateCcw
+  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check, RotateCcw, PackageCheck
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,7 +44,7 @@ import {
   documentTypeStorage
 } from '@/lib/storage'
 import { roleStorage } from '@/lib/storage'
-import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission, RelatedDocumentConfig } from '@/lib/types'
+import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission, RelatedDocumentConfig, ActionButton } from '@/lib/types'
 
 function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -201,7 +201,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     // 获取用户的所有角色标识
     const userRoleIdentifiers = getUserRoleIdentifiers()
     
-    // 检查是否是管理员角色
+    // 检查是��是管理员角色
     const isAdmin = userRoleIdentifiers.some(r => r === 'role_admin' || r === 'admin')
     
     // 管理员拥有所有权限
@@ -542,6 +542,106 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  // 生成关联单据（如从LAC生成回货单）
+  const handleGenerateDocument = async (button: ActionButton) => {
+    const user = getEffectiveUser()
+    if (!document || !user || !button.generateDocTypeId) return
+
+    // 确认操作
+    if (button.confirmRequired && button.confirmMessage) {
+      if (!confirm(button.confirmMessage)) return
+    }
+
+    setIsSubmitting(true)
+    try {
+      // 获取目标单据类型
+      const targetDocType = documentTypeStorage.getById(button.generateDocTypeId)
+      if (!targetDocType) {
+        alert('目标单据类型不存在')
+        return
+      }
+
+      // 生成新单号
+      const now = new Date()
+      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '')
+      const randomNum = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+      const newDocNumber = `${targetDocType.numberRule?.prefix || targetDocType.code}${dateStr}${randomNum}`
+
+      // 根据字段映射生成表单数据
+      const newFormData: Record<string, unknown> = {
+        // 记录源单据信息
+        source_document_id: document.id,
+        source_document_number: document.documentNumber,
+        source_document_type: document.documentTypeId || document.formId,
+      }
+
+      // 应用字段映射
+      if (button.fieldMapping) {
+        for (const [sourceField, targetField] of Object.entries(button.fieldMapping)) {
+          if (document.formData[sourceField] !== undefined) {
+            newFormData[targetField] = document.formData[sourceField]
+          }
+        }
+      }
+
+      // 创建新单据
+      const newDocument: Document = {
+        id: generateId(),
+        documentNumber: newDocNumber,
+        documentTypeId: button.generateDocTypeId,
+        formId: button.generateDocTypeId,
+        formData: newFormData,
+        status: 'draft',
+        createdBy: user.id,
+        createdByName: user.name,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      }
+
+      documentStorage.save(newDocument)
+
+      // 提示用户并跳转
+      alert(`已成功生成${targetDocType.name}：${newDocNumber}`)
+      router.push(`/runtime/documents/${newDocument.id}`)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // 获取当前单据类型的操作按钮
+  const getVisibleActionButtons = (): ActionButton[] => {
+    if (!form || !document) return []
+    
+    const docType = form as DocumentType
+    if (!docType.actionButtons) return []
+
+    const userRoles = currentUser?.roles || []
+    
+    return docType.actionButtons.filter(button => {
+      // 检查是否启用
+      if (!button.enabled) return false
+      
+      // 检查状态是否匹配
+      if (button.visibleStatus && button.visibleStatus.length > 0) {
+        if (!button.visibleStatus.includes(document.status)) return false
+      }
+      
+      // 检查角色是否匹配
+      if (button.visibleRoles && button.visibleRoles.length > 0) {
+        const hasRole = button.visibleRoles.some(role => userRoles.includes(role))
+        if (!hasRole) return false
+      }
+      
+      // 只显示footer位置的生成单据按钮
+      if (button.position !== 'footer') return false
+      if (button.actionType !== 'generate_doc') return false
+      
+      return true
+    }).sort((a, b) => a.order - b.order)
+  }
+
+  const visibleActionButtons = getVisibleActionButtons()
+
   // 判断当前用户是否可以审批
   const canApprove = hasPermission('approve')
   const canReject = hasPermission('reject')
@@ -647,6 +747,20 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                 撤销
               </Button>
             )}
+            {/* 动态操作按钮（如生成回货单） */}
+            {visibleActionButtons.map(button => (
+              <Button
+                key={button.id}
+                variant={button.type === 'primary' ? 'default' : 'outline'}
+                onClick={() => handleGenerateDocument(button)}
+                disabled={isSubmitting}
+                className={button.type === 'primary' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+              >
+                {button.icon === 'PackageCheck' && <PackageCheck className="mr-2 h-4 w-4" />}
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {button.name}
+              </Button>
+            ))}
           </div>
         </div>
 
@@ -1333,7 +1447,7 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                         </Button>
                       </div>
                       
-                      {/* 隐藏的文件输入 */}
+                      {/* 隐藏���文件输入 */}
                       <input
                         ref={fileInputRef}
                         type="file"

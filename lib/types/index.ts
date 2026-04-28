@@ -287,6 +287,8 @@ export interface DocumentType {
   actionButtons?: ActionButton[]
   // 其他设置
   enableReply?: boolean // 是否启用回复
+  allowManualCreate?: boolean // 是否允许手动创建（默认true），设为false时只能通过流程自动生成
+  parentDocTypeId?: string // 父单据类型ID（用于关联生成的单据）
   status: 'draft' | 'published'
   order: number
   createdAt: string

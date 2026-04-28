@@ -33,6 +33,10 @@ const returnGoodsDocumentType: DocumentType = {
   icon: 'PackageCheck',
   description: '物流回货单，用于索赔处理后的配件回货管理，支持扫码签收、仓库收货及质量审核',
   
+  // 回货单不允许手动创建，只能通过LAC索赔单自动生成
+  allowManualCreate: false,
+  parentDocTypeId: 'doctype_lac', // 父单据类型为LAC索赔单
+  
   numberRule: {
     prefix: 'RG',
     dateFormat: 'YYYYMMDD',
@@ -586,7 +590,7 @@ const returnGoodsDocumentType: DocumentType = {
       actionType: 'status_change',
       toStatus: 'received',
       confirmRequired: true,
-      confirmMessage: '确定已完成收货吗？收货后将进入质检流程。',
+      confirmMessage: '确定已完成收���吗？收货后将进入质检流程。',
       order: 2,
       enabled: true,
     },

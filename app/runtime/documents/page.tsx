@@ -111,6 +111,15 @@ function DocumentsContent() {
     return matchesSearch
   })
 
+  // 获取允许手动创建的单据类型
+  const creatableDocumentTypes = documentTypes.filter(dt => dt.allowManualCreate !== false)
+
+  // 检查单据类型是否允许手动创建
+  const canManualCreate = (docTypeId: string) => {
+    const docType = documentTypes.find(dt => dt.id === docTypeId)
+    return docType?.allowManualCreate !== false
+  }
+
   const getDocTypeName = (docTypeId: string) => {
     const docType = documentTypes.find(dt => dt.id === docTypeId)
     return docType?.name || '未知类型'
@@ -139,12 +148,21 @@ function DocumentsContent() {
 
   const handleCreateNew = (docTypeId?: string) => {
     if (docTypeId) {
+      // 检查是否允许手动创建
+      if (!canManualCreate(docTypeId)) {
+        alert('此单据类型不支持手动创建，只能通过关联流程自动生成')
+        return
+      }
       router.push(`/runtime/documents/create?documentTypeId=${docTypeId}`)
     } else if (selectedDocTypeId && selectedDocTypeId !== 'all') {
+      if (!canManualCreate(selectedDocTypeId)) {
+        alert('此单据类型不支持手动创建，只能通过关联流程自动生成')
+        return
+      }
       router.push(`/runtime/documents/create?documentTypeId=${selectedDocTypeId}`)
-    } else if (documentTypes.length > 0) {
-      if (documentTypes.length === 1) {
-        router.push(`/runtime/documents/create?documentTypeId=${documentTypes[0].id}`)
+    } else if (creatableDocumentTypes.length > 0) {
+      if (creatableDocumentTypes.length === 1) {
+        router.push(`/runtime/documents/create?documentTypeId=${creatableDocumentTypes[0].id}`)
       } else {
         router.push('/runtime/documents/select-type')
       }
@@ -289,14 +307,20 @@ function DocumentsContent() {
                           </div>
                         )}
                         <div className="mt-4 flex gap-2">
-                          <Button 
-                            size="sm" 
-                            className="flex-1"
-                            onClick={(e) => { e.stopPropagation(); handleCreateNew(docType.id) }}
-                          >
-                            <Plus className="mr-1.5 h-4 w-4" />
-                            新建单据
-                          </Button>
+                          {docType.allowManualCreate !== false ? (
+                            <Button 
+                              size="sm" 
+                              className="flex-1"
+                              onClick={(e) => { e.stopPropagation(); handleCreateNew(docType.id) }}
+                            >
+                              <Plus className="mr-1.5 h-4 w-4" />
+                              新建单据
+                            </Button>
+                          ) : (
+                            <div className="flex-1 text-xs text-muted-foreground text-center py-2 bg-muted/50 rounded">
+                              仅支持流程生成
+                            </div>
+                          )}
                           <Button 
                             size="sm" 
                             variant="outline"
