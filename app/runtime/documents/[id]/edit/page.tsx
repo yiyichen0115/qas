@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { MainLayout } from '@/components/layout/main-layout'
+import { SubtableField } from '@/components/subtable-field'
 import { formStorage, documentStorage, workflowStorage, userStorage, documentTypeStorage } from '@/lib/storage'
 import { getVehicleByVin, getDealerByCode, type VehicleInfo, type Dealer } from '@/lib/base-data'
 import type { FormConfig, FormField, Document, WorkflowConfig, WorkflowNode, NodePermission } from '@/lib/types'
@@ -254,6 +255,16 @@ function FieldRenderer({
         <p className="text-sm text-muted-foreground">
           {field.description || field.label}
         </p>
+      )
+    
+    case 'subtable':
+      return (
+        <SubtableField
+          field={field}
+          value={(value as { id: string; [key: string]: unknown }[]) || []}
+          onChange={(newValue) => onChange(newValue)}
+          readOnly={field.disabled || !fieldPermission.editable}
+        />
       )
     
     default:

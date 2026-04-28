@@ -34,6 +34,7 @@ import { Switch } from '@/components/ui/switch'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { RelatedDocumentsList } from '@/components/related-documents-list'
+import { SubtableField } from '@/components/subtable-field'
 import {
   documentStorage,
   formStorage,
@@ -960,6 +961,24 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                     config={field.relatedDocConfig}
                                     sourceValue={String(sourceFieldValue || '')}
                                     documentId={document.id}
+                                  />
+                                </div>
+                              )
+                            }
+                            
+                            // 子表格字段特殊处理
+                            if (field.type === 'subtable' && field.columns) {
+                              const subtableValue = (value as unknown[]) || []
+                              return (
+                                <div key={field.id} className="sm:col-span-2 lg:col-span-3 mt-2">
+                                  <div className="mb-2">
+                                    <Label className="text-sm font-medium">{field.label}</Label>
+                                    {field.required && <span className="text-destructive ml-1">*</span>}
+                                  </div>
+                                  <SubtableField
+                                    field={field}
+                                    value={subtableValue as { id: string; [key: string]: unknown }[]}
+                                    readOnly={true}
                                   />
                                 </div>
                               )
