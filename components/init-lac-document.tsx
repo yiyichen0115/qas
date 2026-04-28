@@ -600,23 +600,23 @@ const lacDocumentType: DocumentType = {
       type: 'primary',
       icon: 'PackageCheck',
       position: 'footer',
-      visibleStatus: ['replied', 'processing'],
-      visibleRoles: ['engineer', 'admin'],
+      visibleStatus: ['draft', 'pending', 'replied', 'processing', 'approved'],
+      visibleRoles: ['engineer', 'admin', 'role_engineer', 'role_admin'],
       actionType: 'generate_doc',
       generateDocTypeId: 'doctype_return_goods',
+      // 字段映射：LAC源字段 -> 回货单目标字段
       fieldMapping: {
-        'claim_no': 'application_no',
-        'service_station_code': 'sap_code',
-        'service_station_name': 'service_center_name',
-        'contact_phone': 'contact_phone',
-        'part_drawing_no': 'part_drawing_no',
-        'part_name': 'part_name',
-        'claim_quantity': 'claim_quantity',
-        'material_quantity': 'claim_quantity',
-        'shipping_warehouse': 'shipping_warehouse',
-        'problem_type': 'problem_type',
-        'problem_remark': 'problem_remark',
-        'claim_method': 'claim_method',
+        'application_no': 'claim_no',           // 申请单号 -> 索赔单号
+        'sap_code': 'service_station_code',     // SAP代码 -> 服务站代码
+        'service_center_name': 'service_station_name', // 服务中心名称 -> 服务站名称
+        'contact_phone': 'contact_phone',       // 联系电话 -> 联系电话
+        'service_station_address': 'service_station_address', // 地址 -> 地址
+        'part_drawing_no': 'part_drawing_no',   // 物料图号 -> 物料图号
+        'part_name': 'part_name',               // 物料名称 -> 物料名称
+        'claim_quantity': 'material_quantity',  // 索赔数量 -> 物料数量
+        'shipping_warehouse': 'shipping_warehouse', // 发货地 -> 发货地
+        'problem_type': 'problem_type',         // 问题类型 -> 问题类型
+        'defect_description': 'problem_remark', // 缺陷描述 -> 问题备注
       },
       confirmRequired: true,
       confirmMessage: '确定要根据此索赔单生成回货单吗？回货单将用于配件回货管理。',
@@ -884,7 +884,7 @@ const lacWorkflowNodes: WorkflowNode[] = [
     position: { x: 250, y: 850 },
     data: {
       label: '索赔完成',
-      description: '索赔处理完成，等待服务中心确认',
+      description: '索赔处理��成，等待服务中心确认',
       permissions: [
         {
           roleId: 'dealer',
@@ -1109,8 +1109,8 @@ export function InitLacDocument() {
       // 不存在则创建
       documentTypeStorage.save(lacDocumentType)
       console.log('LAC单据类型已自动创建')
-    } else if ((existingLac.fields?.length || 0) < lacDocumentType.fields.length) {
-      // 如果字段数量少于配置，更新字段
+    } else {
+      // 总是更新字段和按钮配置
       const updatedType = {
         ...existingLac,
         fields: lacDocumentType.fields,
@@ -1120,7 +1120,7 @@ export function InitLacDocument() {
         updatedAt: new Date().toISOString(),
       }
       documentTypeStorage.save(updatedType)
-      console.log('LAC单据类型已更新字段配置')
+      console.log('LAC单据类型已更新配置')
     }
     
     // 检查是否已存在LAC工作流
