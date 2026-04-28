@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Node } from '@xyflow/react'
-import type { WorkflowNodeData, ApproverType, NodeType, FormField, DocumentType, WorkflowConfig } from '@/lib/types'
+import type { WorkflowNodeData, ApproverType, NodeType, FormField, FormConfig, WorkflowConfig } from '@/lib/types'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -37,10 +37,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Settings, Plus, Info, Users, Shield, List, Edit3, Eye, Pencil, Check, X, Search } from 'lucide-react'
 import { useAppStore } from '@/stores/app-store'
+import { documentTypeStorage } from '@/lib/storage'
 
 interface NodePropertiesProps {
   node: Node<WorkflowNodeData> | null
-  onUpdateNode: (nodeId: string, data: Partial<WorkflowNodeData>) => void
+  onUpdateNode: (id: string, data: Partial<WorkflowNodeData>) => void
+  workflowId?: string
 }
 
 const nodeTypeLabels: Record<NodeType, string> = {
@@ -61,11 +63,11 @@ const nodeTypeLabels: Record<NodeType, string> = {
   action: '自定义动作',
 }
 
-export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
-  const { users, roles, loadUsers, loadRoles, forms, workflows } = useAppStore()
+export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertiesProps) {
+  const { users, roles, loadUsers, loadRoles, forms, workflows, loadForms, loadWorkflows } = useAppStore()
   const [currentWorkflow, setCurrentWorkflow] = useState<WorkflowConfig | null>(null)
   const [localData, setLocalData] = useState<WorkflowNodeData | null>(null)
-  const [currentForm, setCurrentForm] = useState<DocumentType | null>(null)
+  const [currentForm, setCurrentForm] = useState<FormConfig | null>(null)
   const [expandedFieldConfigs, setExpandedFieldConfigs] = useState<Record<string, boolean>>({})
   const [selectedFields, setSelectedFields] = useState<Record<string, FormField[]>>({})
   // 字段权限配置弹窗状态
@@ -75,19 +77,13 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
   // 临时存储弹窗内的字段权限配置（点击保存后才真正应用）
   const [tempFieldPermissions, setTempFieldPermissions] = useState<Record<string, { visible: boolean; editable: boolean }>>({})
 
-  // 从父组件获取当前流程
-  const parentWorkflowId = typeof window !== 'undefined' ? (window as any).currentWorkflowId : null
-
   useEffect(() => {
     loadUsers()
     loadRoles()
-    if (workflows.length > 0 && currentWorkflow?.id) {
-      const workflow = workflows.find(w => w.id === currentWorkflow.id)
-      if (workflow) {
-        setCurrentWorkflow(workflow)
-      }
-    }
-  }, [loadUsers, loadRoles, workflows, currentWorkflow])
+    loadForms()
+    loadWorkflows()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (node) {
@@ -97,25 +93,54 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
     }
   }, [node])
 
-  // 从父组件获取当前流程
+  // 根据 workflowId 获取当前工作流
   useEffect(() => {
-    if (parentWorkflowId) {
-      const workflow = workflows.find(w => w.id === parentWorkflowId)
+    if (workflowId && workflows.length > 0) {
+      const workflow = workflows.find(w => w.id === workflowId)
       if (workflow) {
         setCurrentWorkflow(workflow)
       }
     }
-  }, [parentWorkflowId, workflows])
+  }, [workflowId, workflows])
 
-  // 获取当前流程关联的表单
-  const form = currentWorkflow?.formId ? forms.find(f => f.id === currentWorkflow.formId) : null
-
-  // 加载表单数据
+  // 获取当前流程关联的表单（支持formId和categoryId两种关联方式，同时支持formStorage和documentTypeStorage）
   useEffect(() => {
-    if (form) {
-      setCurrentForm(form)
+    if (!currentWorkflow) {
+      setCurrentForm(null)
+      return
     }
-  }, [form])
+    
+    // 优先通过formId查找（在formStorage中）
+    let foundForm: FormConfig | null = currentWorkflow.formId 
+      ? forms.find(f => f.id === currentWorkflow.formId) || null
+      : null
+    
+    // 如果没有找到，尝试通过categoryId查找（在formStorage中）
+    if (!foundForm && currentWorkflow.categoryId) {
+      foundForm = forms.find(f => f.id === currentWorkflow.categoryId) || null
+    }
+    
+    // 如果还没有找到，尝试从documentTypeStorage中查找
+    if (!foundForm && currentWorkflow.categoryId) {
+      const documentTypes = documentTypeStorage.getAll()
+      const docType = documentTypes.find(dt => dt.id === currentWorkflow.categoryId)
+      if (docType) {
+        // 将DocumentType转换为FormConfig格式
+        foundForm = {
+          id: docType.id,
+          name: docType.name,
+          description: docType.description,
+          fields: docType.fields,
+          layout: docType.layout || 'vertical',
+          status: 'published',
+          createdAt: docType.createdAt || new Date().toISOString(),
+          updatedAt: docType.updatedAt || new Date().toISOString(),
+        }
+      }
+    }
+    
+    setCurrentForm(foundForm)
+  }, [currentWorkflow, forms])
 
   if (!node || !localData) {
     return (
@@ -892,25 +917,34 @@ export function NodeProperties({ node, onUpdateNode }: NodePropertiesProps) {
                         </div>
 
                         {/* 字段权限配置按钮 - 打开弹窗 */}
-                        {permission?.canEdit && currentForm && (
+                        {permission?.canEdit && (
                           <div className="pt-2 border-t border-border">
-                            <button
-                              className="flex w-full items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                              onClick={() => openFieldPermissionDialog(role.id)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <Pencil className="h-3.5 w-3.5" />
-                                <span>配置字段编辑权限</span>
+                            {currentForm ? (
+                              <button
+                                className="flex w-full items-center justify-between py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                onClick={() => openFieldPermissionDialog(role.id)}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  <span>配置字段编辑权限</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length > 0 && (
+                                    <Badge variant="secondary" className="h-5 text-[10px]">
+                                      {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length} 个可编辑
+                                    </Badge>
+                                  )}
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </div>
+                              </button>
+                            ) : (
+                              <div className="py-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  <span>请先关联表单后再配置字段权限</span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-1">
-                                {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length > 0 && (
-                                  <Badge variant="secondary" className="h-5 text-[10px]">
-                                    {Object.values(permission?.fieldPermissions || {}).filter(p => p.editable).length} 个可编辑
-                                  </Badge>
-                                )}
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </div>
-                            </button>
+                            )}
                           </div>
                         )}
                       </div>
