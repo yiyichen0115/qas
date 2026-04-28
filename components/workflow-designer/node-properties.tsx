@@ -997,7 +997,7 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
 
       {/* 字段权限配置弹窗 */}
       <Dialog open={fieldPermissionDialogOpen} onOpenChange={setFieldPermissionDialogOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[85vh] flex flex-col overflow-hidden">
+        <DialogContent className="max-w-[98vw] w-[98vw] h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
@@ -1075,19 +1075,19 @@ export function NodeProperties({ node, onUpdateNode, workflowId }: NodePropertie
                     
                     {/* 字段表格 */}
                     <div className="rounded-lg border border-border overflow-hidden">
-                      <Table>
+                      <Table className="table-fixed w-full">
                         <TableHeader>
                           <TableRow className="bg-muted/30">
-                            <TableHead className="text-xs whitespace-nowrap">字段名称</TableHead>
-                            <TableHead className="text-xs whitespace-nowrap">字段代码</TableHead>
-                            <TableHead className="text-xs whitespace-nowrap w-24">字段类型</TableHead>
-                            <TableHead className="text-xs text-center whitespace-nowrap w-20">
+                            <TableHead className="text-xs whitespace-nowrap w-[35%]">字段名称</TableHead>
+                            <TableHead className="text-xs whitespace-nowrap w-[30%]">字段代码</TableHead>
+                            <TableHead className="text-xs whitespace-nowrap w-[15%]">字段类型</TableHead>
+                            <TableHead className="text-xs text-center whitespace-nowrap w-[10%]">
                               <div className="flex items-center justify-center gap-1">
                                 <Eye className="h-3 w-3" />
                                 可见
                               </div>
                             </TableHead>
-                            <TableHead className="text-xs text-center whitespace-nowrap w-20">
+                            <TableHead className="text-xs text-center whitespace-nowrap w-[10%]">
                               <div className="flex items-center justify-center gap-1">
                                 <Pencil className="h-3 w-3" />
                                 可编辑
