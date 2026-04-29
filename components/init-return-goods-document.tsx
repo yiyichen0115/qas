@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { documentTypeStorage, workflowStorage } from '@/lib/storage'
+import { documentTypeStorage, workflowStorage, fieldGroupStorage } from '@/lib/storage'
 import type { 
   DocumentType, 
   FormField, 
@@ -43,6 +43,20 @@ const returnGoodsDocumentType: DocumentType = {
     sequenceLength: 4,
     resetCycle: 'daily',
   } as DocumentNumberRule,
+
+  // 使用统一的基础信息字段组
+  fieldGroups: [
+    {
+      fieldGroupId: 'system_basic_info',
+      enabled: true,
+      overrideFields: [
+        {
+          id: 'doc_number',
+          hidden: false, // 确保显示单据号
+        },
+      ],
+    },
+  ],
   
   fields: [
     // ========== 服务站信息区域 ==========
@@ -785,6 +799,9 @@ export function InitReturnGoodsDocument() {
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
+    // 初始化系统内置字段组
+    fieldGroupStorage.initSystemGroups()
+
     // 检查是否已存在回货单类型
     const existingTypes = documentTypeStorage.getAll()
     const existingReturnGoods = existingTypes.find(t => t.code === 'RG' || t.id === 'doctype_return_goods')
@@ -794,20 +811,27 @@ export function InitReturnGoodsDocument() {
       documentTypeStorage.save(returnGoodsDocumentType)
       console.log('回货单单据类型已自动创建')
     } else {
-      // 总是更新配置，确保actionButtons等属性是最新的
-      const updatedType = {
-        ...existingReturnGoods,
-        fields: returnGoodsDocumentType.fields,
-        actionButtons: returnGoodsDocumentType.actionButtons,
-        allowManualCreate: returnGoodsDocumentType.allowManualCreate,
-        parentDocTypeId: returnGoodsDocumentType.parentDocTypeId,
-        enableReply: true,
-        numberRule: returnGoodsDocumentType.numberRule,
-        description: returnGoodsDocumentType.description,
-        updatedAt: new Date().toISOString(),
+      // 检查是否需要更新（字段组或字段数量）
+      const needsUpdate =
+        !existingReturnGoods.fieldGroups || existingReturnGoods.fieldGroups.length === 0 ||
+        !existingReturnGoods.actionButtons || existingReturnGoods.actionButtons.length < returnGoodsDocumentType.actionButtons!.length
+
+      if (needsUpdate) {
+        // 更新配置，确保包含基础信息字段组
+        const updatedType = {
+          ...existingReturnGoods,
+          fieldGroups: returnGoodsDocumentType.fieldGroups,
+          fields: returnGoodsDocumentType.fields,
+          actionButtons: returnGoodsDocumentType.actionButtons,
+          allowManualCreate: returnGoodsDocumentType.allowManualCreate,
+          parentDocTypeId: returnGoodsDocumentType.parentDocTypeId,
+          enableReply: true,
+          numberRule: returnGoodsDocumentType.numberRule,
+          updatedAt: new Date().toISOString(),
+        }
+        documentTypeStorage.save(updatedType)
+        console.log('回货单单据类型已更新配置（包含基础信息字段组）')
       }
-      documentTypeStorage.save(updatedType)
-      console.log('回货单单据类型已更新配置')
     }
     
     // 检查是否已存在回货单工作流

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { fieldTypeStorage, predefinedFieldStorage } from '@/lib/storage'
-import type { FieldTypeConfig, PredefinedField } from '@/lib/types'
+import { fieldTypeStorage, predefinedFieldStorage, fieldGroupStorage } from '@/lib/storage'
+import type { FieldTypeConfig, PredefinedField, FieldGroup } from '@/lib/types'
 import {
   Type,
   Hash,
@@ -144,7 +144,8 @@ function DraggablePredefinedField({ field }: DraggablePredefinedFieldProps) {
 export function FieldPalette() {
   const [fieldTypes, setFieldTypes] = useState<FieldTypeConfig[]>([])
   const [predefinedFields, setPredefinedFields] = useState<PredefinedField[]>([])
-  const [activeTab, setActiveTab] = useState<'components' | 'basedata'>('components')
+  const [fieldGroups, setFieldGroups] = useState<FieldGroup[]>([])
+  const [activeTab, setActiveTab] = useState<'components' | 'fieldgroups' | 'basedata'>('components')
 
   useEffect(() => {
     const types = fieldTypeStorage.getEnabled()
@@ -152,6 +153,11 @@ export function FieldPalette() {
     
     const preFields = predefinedFieldStorage.getEnabled()
     setPredefinedFields(preFields)
+
+    // 初始化并加载字段组
+    fieldGroupStorage.initSystemGroups()
+    const groups = fieldGroupStorage.getAll()
+    setFieldGroups(groups)
   }, [])
 
   const basicFields = fieldTypes.filter((f) => f.category === 'basic')
@@ -173,15 +179,19 @@ export function FieldPalette() {
         <p className="mt-1 text-xs text-muted-foreground">拖拽添加到表单</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'components' | 'basedata')} className="flex-1 flex flex-col">
-        <TabsList className="mx-4 mt-3 grid w-auto grid-cols-2">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'components' | 'fieldgroups' | 'basedata')} className="flex-1 flex flex-col">
+        <TabsList className="mx-4 mt-3 grid w-auto grid-cols-3">
           <TabsTrigger value="components" className="text-xs">
             <Box className="h-3.5 w-3.5 mr-1" />
-            字段组件
+            组件
+          </TabsTrigger>
+          <TabsTrigger value="fieldgroups" className="text-xs">
+            <Layers className="h-3.5 w-3.5 mr-1" />
+            字段组
           </TabsTrigger>
           <TabsTrigger value="basedata" className="text-xs">
             <Database className="h-3.5 w-3.5 mr-1" />
-            基础数据
+            数据
           </TabsTrigger>
         </TabsList>
 
@@ -241,8 +251,99 @@ export function FieldPalette() {
               )}
             </div>
           </ScrollArea>
-        </TabsContent>
+</TabsContent>
+        
+        <TabsContent value="fieldgroups" className="flex-1 mt-0 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-6">
+              {/* 基础信息字段组 */}
+              {fieldGroups.filter(g => g.category === 'basic').length > 0 && (
+                <div>
+                  <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    基础信息
+                  </h4>
+                  <div className="space-y-3">
+                    {fieldGroups.filter(g => g.category === 'basic').map((group) => (
+                      <div
+                        key={group.id}
+                        className="rounded-lg border border-border bg-card p-3 text-sm"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-foreground">{group.name}</span>
+                          {group.isSystem && (
+                            <Badge variant="secondary" className="text-xs">系统</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-2">{group.description}</p>
+                        <div className="text-xs text-muted-foreground">
+                          包含 {group.fields.length} 个字段
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {group.fields.slice(0, 4).map((field) => (
+                            <Badge key={field.id} variant="outline" className="text-xs">
+                              {field.label}
+                            </Badge>
+                          ))}
+                          {group.fields.length > 4 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{group.fields.length - 4}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
+              {/* 业务字段组 */}
+              {fieldGroups.filter(g => g.category === 'business').length > 0 && (
+                <div>
+                  <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    业务字段组
+                  </h4>
+                  <div className="space-y-3">
+                    {fieldGroups.filter(g => g.category === 'business').map((group) => (
+                      <div
+                        key={group.id}
+                        className="rounded-lg border border-border bg-card p-3 text-sm"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-foreground">{group.name}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-2">{group.description}</p>
+                        <div className="text-xs text-muted-foreground">
+                          包含 {group.fields.length} 个字段
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 使用说明 */}
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+                <h4 className="mb-2 text-xs font-medium text-blue-900 dark:text-blue-100">使用说明</h4>
+                <ul className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
+                  <li>- 基础信息字段组自动应用于所有单据</li>
+                  <li>- 字段值从 Document 结构自动读取</li>
+                  <li>- 在单据类型配置中引用字段组</li>
+                </ul>
+              </div>
+
+              {fieldGroups.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>暂无字段组</p>
+                  <p className="text-xs mt-1">系统字段组将自动初始化</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+  
         <TabsContent value="basedata" className="flex-1 mt-0 overflow-hidden">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-6">
