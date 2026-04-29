@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { documentTypeStorage, workflowStorage } from '@/lib/storage'
+import { documentTypeStorage, workflowStorage, fieldGroupStorage } from '@/lib/storage'
 import type { DocumentType, FormField, DocumentNumberRule, ActionButton, WorkflowConfig, WorkflowNode, WorkflowEdge, FlowEvent, DocumentStatusConfig } from '@/lib/types'
 
 // PAC单据类型配置
@@ -23,45 +23,24 @@ const pacDocumentType: DocumentType = {
     sequenceLength: 4,
     resetCycle: 'daily',
   } as DocumentNumberRule,
-  
+
+  // 使用统一的基础信息字段组
+  fieldGroups: [
+    {
+      fieldGroupId: 'system_basic_info',
+      enabled: true,
+      overrideFields: [
+        {
+          id: 'doc_number',
+          hidden: false, // 确保显示单据号
+        },
+      ],
+    },
+  ],
+
   fields: [
-    // 基本信息区
-    {
-      id: 'section_header',
-      type: 'divider',
-      label: '基本信息',
-      name: 'section_header',
-      required: false,
-      width: 'full',
-    },
-    {
-      id: 'problem_id',
-      type: 'text',
-      label: '问题编号',
-      name: 'problem_id',
-      required: false,
-      placeholder: '系统自动生成',
-      disabled: true,
-      width: 'third',
-    },
-    {
-      id: 'submit_time',
-      type: 'datetime',
-      label: '提问时间',
-      name: 'submit_time',
-      required: true,
-      width: 'third',
-    },
-    {
-      id: 'reply_count',
-      type: 'number',
-      label: '回复次数',
-      name: 'reply_count',
-      required: false,
-      defaultValue: 0,
-      disabled: true,
-      width: 'third',
-    },
+    // 移除了重复的基础字段（problem_id、submit_time等），现在使用字段组
+    // 保留业务特定字段
     {
       id: 'is_complaint',
       type: 'radio',
@@ -771,6 +750,9 @@ export function InitPacDocument() {
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
+    // 初始化系统内置字段组
+    fieldGroupStorage.initSystemGroups()
+
     // 检查是否已存在PAC类型
     const existingTypes = documentTypeStorage.getAll()
     const existingPac = existingTypes.find(t => t.code === 'PAC' || t.id === 'doctype_pac')
@@ -779,18 +761,25 @@ export function InitPacDocument() {
       // 不存在则创建
       documentTypeStorage.save(pacDocumentType)
       console.log('PAC单据类型已自动创建')
-    } else if ((existingPac.fields?.length || 0) < pacDocumentType.fields.length) {
-      // 如果字段数量少于配置，更新字段
-      const updatedType = {
-        ...existingPac,
-        fields: pacDocumentType.fields,
-        actionButtons: pacDocumentType.actionButtons,
-        enableReply: true,
-        numberRule: pacDocumentType.numberRule,
-        updatedAt: new Date().toISOString(),
+    } else {
+      // 检查是否需要更新（字段组或字段数量）
+      const needsUpdate =
+        !existingPac.fieldGroups || existingPac.fieldGroups.length === 0 ||
+        (existingPac.fields?.length || 0) > pacDocumentType.fields.length
+
+      if (needsUpdate) {
+        const updatedType = {
+          ...existingPac,
+          fieldGroups: pacDocumentType.fieldGroups,
+          fields: pacDocumentType.fields,
+          actionButtons: pacDocumentType.actionButtons,
+          enableReply: true,
+          numberRule: pacDocumentType.numberRule,
+          updatedAt: new Date().toISOString(),
+        }
+        documentTypeStorage.save(updatedType)
+        console.log('PAC单据类型已更新配置（包含基础信息字段组）')
       }
-      documentTypeStorage.save(updatedType)
-      console.log('PAC单据类型已更新字段配置')
     }
     
     // 检查是否已存在PAC工作流

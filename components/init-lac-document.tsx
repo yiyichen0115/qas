@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { documentTypeStorage, workflowStorage } from '@/lib/storage'
+import { documentTypeStorage, workflowStorage, fieldGroupStorage } from '@/lib/storage'
 import type { DocumentType, FormField, DocumentNumberRule, ActionButton, WorkflowConfig, WorkflowNode, WorkflowEdge, FlowEvent, DocumentStatusConfig } from '@/lib/types'
 
 // LAC单据类型配置
@@ -23,35 +23,24 @@ const lacDocumentType: DocumentType = {
     sequenceLength: 4,
     resetCycle: 'daily',
   } as DocumentNumberRule,
-  
+
+  // 使用统一的基础信息字段组
+  fieldGroups: [
+    {
+      fieldGroupId: 'system_basic_info',
+      enabled: true,
+      overrideFields: [
+        {
+          id: 'doc_number',
+          hidden: false, // 确保显示单据号
+        },
+      ],
+    },
+  ],
+
   fields: [
-    // 申请信息区
-    {
-      id: 'section_application',
-      type: 'divider',
-      label: '申请信息',
-      name: 'section_application',
-      required: false,
-      width: 'full',
-    },
-    {
-      id: 'application_no',
-      type: 'text',
-      label: '申请单号',
-      name: 'application_no',
-      required: false,
-      placeholder: '系统自动生成',
-      disabled: true,
-      width: 'third',
-    },
-    {
-      id: 'upload_time',
-      type: 'datetime',
-      label: '上传时间',
-      name: 'upload_time',
-      required: true,
-      width: 'third',
-    },
+    // 移除了重复的基础字段（application_no、upload_time等），现在使用字段组
+    // 保留业务特定字段
     {
       id: 'related_application_no',
       type: 'text',
@@ -508,7 +497,7 @@ const lacDocumentType: DocumentType = {
         docTypeId: 'doctype_return_goods',
         docTypeName: '回货单',
         linkField: 'claim_no',
-        linkSourceField: 'application_no',
+        linkSourceField: 'document_number', // 使用统一的基础字段
         displayColumns: [
           { field: 'return_goods_no', label: '回货单号', width: '120px' },
           { field: 'return_goods_status', label: '状态', width: '80px' },
@@ -606,7 +595,7 @@ const lacDocumentType: DocumentType = {
       generateDocTypeId: 'doctype_return_goods',
       // 字段映射：LAC源字段 -> 回货单目标字段
       fieldMapping: {
-        'application_no': 'claim_no',
+        'document_number': 'claim_no', // 使用统一的基础字段
         'sap_code': 'service_station_code',
         'service_center_name': 'service_station_name',
         'contact_phone': 'contact_phone',
@@ -660,7 +649,7 @@ const lacDocumentType: DocumentType = {
       position: 'toolbar',
       visibleStatus: ['replied', 'processing', 'closed'],
       actionType: 'open_url',
-      openUrl: '/runtime/documents?type=doctype_return_goods&claim_no={application_no}',
+      openUrl: '/runtime/documents?type=doctype_return_goods&claim_no={document_number}', // 使用统一的基础字段
       openInNewTab: false,
       order: 2,
       enabled: true,
@@ -1101,26 +1090,36 @@ export function InitLacDocument() {
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
+    // 初始化系统内置字段组
+    fieldGroupStorage.initSystemGroups()
+
     // 检查是否已存在LAC类型
     const existingTypes = documentTypeStorage.getAll()
     const existingLac = existingTypes.find(t => t.code === 'LAC' || t.id === 'doctype_lac')
-    
+
     if (!existingLac) {
       // 不存在则创建
       documentTypeStorage.save(lacDocumentType)
       console.log('LAC单据类型已自动创建')
     } else {
-      // 总是更新字段和按钮配置
-      const updatedType = {
-        ...existingLac,
-        fields: lacDocumentType.fields,
-        actionButtons: lacDocumentType.actionButtons,
-        enableReply: true,
-        numberRule: lacDocumentType.numberRule,
-        updatedAt: new Date().toISOString(),
+      // 检查是否需要更新（字段组或字段配置）
+      const needsUpdate =
+        !existingLac.fieldGroups || existingLac.fieldGroups.length === 0 ||
+        JSON.stringify(existingLac.fields) !== JSON.stringify(lacDocumentType.fields)
+
+      if (needsUpdate) {
+        const updatedType = {
+          ...existingLac,
+          fieldGroups: lacDocumentType.fieldGroups,
+          fields: lacDocumentType.fields,
+          actionButtons: lacDocumentType.actionButtons,
+          enableReply: true,
+          numberRule: lacDocumentType.numberRule,
+          updatedAt: new Date().toISOString(),
+        }
+        documentTypeStorage.save(updatedType)
+        console.log('LAC单据类型已更新配置（包含基础信息字段组）')
       }
-      documentTypeStorage.save(updatedType)
-      console.log('LAC单据类型已更新配置')
     }
     
     // 检查是否已存在LAC工作流

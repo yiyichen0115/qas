@@ -220,6 +220,8 @@ export interface FormField {
   linkage?: FieldLinkageConfig
   // 关联单据配置（仅 related_documents 类型使用）
   relatedDocConfig?: RelatedDocumentConfig
+  // 虚拟字段配置
+  virtualField?: VirtualFieldConfig
 }
 
 // ==================== 操作按钮配置 ====================
@@ -278,6 +280,8 @@ export interface DocumentType {
   description?: string
   // 字段配置（原FormConfig中的fields）
   fields: FormField[]
+  // 字段组配置（用于引用预定义字段组）
+  fieldGroups?: FieldGroupReference[]
   layout: 'vertical' | 'horizontal' | 'grid'
   // 单号规则
   numberRule?: DocumentNumberRule
@@ -594,16 +598,89 @@ export interface Document {
   id: string
   documentNumber: string // 单号
   documentTypeId: string // 单据类型ID（原formId）
+  documentTypeName?: string // 单据类型名称（冗余字段，便于查询）
   formId?: string // 兼容旧数据
   appId?: string
-  formData: Record<string, unknown>
+
+  // ==================== 基础信息字段 ====================
   status: DocumentStatus
+  statusName?: string // 状态名称（冗余字段，便于查询）
   currentNodeId?: string
+  currentNodeName?: string // 当前节点名称（冗余字段）
   workflowId?: string
+
+  // ==================== 人员信息字段 ====================
   createdBy: string
   createdByName: string
+  createdByOrg?: string // 创建人组织（服务站/经销商等）
+  createdByOrgCode?: string // 创建人组织代码
+  createdByPosition?: string // 创建人岗位
+  createdByDepartment?: string // 创建人部门
+  createdByPhone?: string // 创建人联系电话
+  createdByEmail?: string // 创建人邮箱
+
+  updatedBy?: string
+  updatedByName?: string
+
+  // ==================== 时间字段 ====================
   createdAt: string
+  submittedAt?: string // 提交时间
   updatedAt: string
+  completedAt?: string // 完成时间
+  latestReplyAt?: string // 最新回复时间（冗余字段）
+
+  // ==================== 来源信息字段 ====================
+  sourceDocumentId?: string
+  sourceDocumentNumber?: string
+  sourceDocumentType?: string
+
+  // ==================== 业务关键字段 ====================
+  // 索赔/回货通用字段
+  claimNo?: string // 索赔单号
+
+  // 服务站/组织信息
+  serviceStationCode?: string // 服务站代码
+  serviceStationName?: string // 服务站名称
+  serviceStationAddress?: string // 服务站地址
+
+  // 配件信息字段
+  partDrawingNo?: string // 配件图号
+  partName?: string // 配件名称
+  partQuantity?: number // 配件数量
+  partUnit?: string // 配件单位
+  partUnitPrice?: number // 配件单价
+  partTotalAmount?: number // 配件总金额
+
+  // 车辆信息字段
+  vin?: string // VIN码
+  vehicleModel?: string // 车型
+  vehiclePlatform?: string // 车型平台
+  vehicleColor?: string // 车辆颜色
+  productionDate?: string // 生产日期
+
+  // 物流信息字段
+  shippingWarehouse?: string // 发货仓库
+  shippingDate?: string // 发货日期
+  deliveryNumber?: string // 发货单号
+  estimatedArrivalDate?: string // 预计到达日期
+
+  // 质量信息字段
+  qualityStatus?: string // 质量状态
+  problemType?: string // 问题类型
+  problemLevel?: string // 问题等级
+
+  // ==================== 扩展字段 ====================
+  tags?: string[] // 标签数组
+  attributes?: Record<string, unknown> // 扩展属性
+  priority?: 'low' | 'normal' | 'high' | 'urgent' // 优先级
+
+  // ==================== 原始表单数据 ====================
+  formData: Record<string, unknown> // 表单业务数据（保留原有结构，用于特殊业务字段）
+
+  // ==================== 统计字段 ====================
+  replyCount?: number // 回复数量
+  approvalCount?: number // 审批次数
+  viewCount?: number // 查看次数
 }
 
 export interface ApprovalRecord {
@@ -747,4 +824,37 @@ export interface AIFieldMapping {
   sourceKey: string // 从对话中提取的信息标识（如：vin、fault_code、description）
   targetField: string // 目标单据字段名
   extractPattern?: string // 提取模式（正则表达式）
+}
+
+// ==================== 字段组相关类型 ====================
+
+// 虚拟字段配置
+export interface VirtualFieldConfig {
+  sourceField: keyof Document // Document中的字段名
+  readOnly: boolean
+  displayName?: string
+  formatType?: 'text' | 'date' | 'datetime' | 'status'
+}
+
+// 字段组引用配置
+export interface FieldGroupReference {
+  fieldGroupId: string
+  enabled: boolean
+  overrideFields?: Partial<FormField>[]
+  customFields?: FormField[]
+}
+
+// 字段组类型
+export interface FieldGroup {
+  id: string
+  name: string
+  code: string
+  description?: string
+  fields: FormField[]
+  isSystem: boolean
+  isPublic: boolean
+  category: 'basic' | 'business' | 'system' | 'custom'
+  version: string
+  createdAt: string
+  updatedAt: string
 }

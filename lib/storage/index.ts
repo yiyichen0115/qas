@@ -19,6 +19,7 @@ import type {
   Part,
   Order,
   Vehicle,
+  FieldGroup,
 } from '@/lib/types'
 
 const STORAGE_KEYS = {
@@ -27,6 +28,7 @@ const STORAGE_KEYS = {
   DOCUMENT_TYPES: 'lowcode_document_types',
   FIELD_TYPES: 'lowcode_field_types',
   PREDEFINED_FIELDS: 'lowcode_predefined_fields',
+  FIELD_GROUPS: 'lowcode_field_groups',
   WORKFLOWS: 'lowcode_workflows',
   PAGES: 'lowcode_pages',
   ROLES: 'lowcode_roles',
@@ -1929,4 +1931,217 @@ function getDefaultVehicles(): Vehicle[] {
       updatedAt: now,
     },
   ]
+}
+
+// ==================== 字段组存储 ====================
+
+export const fieldGroupStorage = {
+  getAll(): FieldGroup[] {
+    return getItem<FieldGroup[]>(STORAGE_KEYS.FIELD_GROUPS, [])
+  },
+
+  getById(id: string): FieldGroup | undefined {
+    const groups = this.getAll()
+    return groups.find(g => g.id === id)
+  },
+
+  getByCode(code: string): FieldGroup | undefined {
+    const groups = this.getAll()
+    return groups.find(g => g.code === code)
+  },
+
+  save(group: FieldGroup): void {
+    const groups = this.getAll()
+    const existingIndex = groups.findIndex(g => g.id === group.id)
+
+    if (existingIndex >= 0) {
+      // 更新现有字段组
+      groups[existingIndex] = {
+        ...group,
+        updatedAt: new Date().toISOString(),
+      }
+    } else {
+      // 添加新字段组
+      groups.push({
+        ...group,
+        createdAt: group.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    setItem(STORAGE_KEYS.FIELD_GROUPS, groups)
+  },
+
+  delete(id: string): void {
+    const groups = this.getAll()
+    const filteredGroups = groups.filter(g => g.id !== id)
+    setItem(STORAGE_KEYS.FIELD_GROUPS, filteredGroups)
+  },
+
+  // 初始化系统内置字段组
+  initSystemGroups(): void {
+    const existingGroups = this.getAll()
+    const basicInfoGroup = this.getByCode('basic_info')
+
+    // 如果不存在基础信息字段组，则创建
+    if (!basicInfoGroup) {
+      const basicInfoFieldGroup: FieldGroup = {
+        id: 'system_basic_info',
+        name: '基础信息',
+        code: 'basic_info',
+        description: '单据基础信息字段组，包含单据号、单据类型、状态、提交人、时间等核心字段',
+        isSystem: true,
+        isPublic: true,
+        category: 'basic',
+        version: '1.0.0',
+        fields: [
+          {
+            id: 'doc_number',
+            type: 'text',
+            label: '单据号',
+            name: 'document_number',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'documentNumber',
+              readOnly: true,
+              formatType: 'text',
+            },
+          },
+          {
+            id: 'doc_type',
+            type: 'text',
+            label: '单据类型',
+            name: 'document_type',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'documentTypeName',
+              readOnly: true,
+              formatType: 'text',
+            },
+          },
+          {
+            id: 'doc_status',
+            type: 'text',
+            label: '单据状态',
+            name: 'document_status',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'statusName',
+              readOnly: true,
+              formatType: 'status',
+            },
+          },
+          {
+            id: 'submitter',
+            type: 'text',
+            label: '提交人',
+            name: 'submitter_name',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'createdByName',
+              readOnly: true,
+              formatType: 'text',
+            },
+          },
+          {
+            id: 'submitter_org',
+            type: 'text',
+            label: '提交人组织',
+            name: 'submitter_org',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'createdByOrg',
+              readOnly: true,
+              formatType: 'text',
+            },
+          },
+          {
+            id: 'submitter_position',
+            type: 'text',
+            label: '提交人岗位',
+            name: 'submitter_position',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'createdByPosition',
+              readOnly: true,
+              formatType: 'text',
+            },
+          },
+          {
+            id: 'created_at',
+            type: 'datetime',
+            label: '创建时间',
+            name: 'created_at',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'createdAt',
+              readOnly: true,
+              formatType: 'datetime',
+            },
+          },
+          {
+            id: 'submitted_at',
+            type: 'datetime',
+            label: '提交时间',
+            name: 'submitted_at',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'submittedAt',
+              readOnly: true,
+              formatType: 'datetime',
+            },
+          },
+          {
+            id: 'updated_at',
+            type: 'datetime',
+            label: '更新时间',
+            name: 'updated_at',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'updatedAt',
+              readOnly: true,
+              formatType: 'datetime',
+            },
+          },
+          {
+            id: 'latest_reply_at',
+            type: 'datetime',
+            label: '最新回复时间',
+            name: 'latest_reply_at',
+            required: false,
+            disabled: true,
+            width: 'third',
+            virtualField: {
+              sourceField: 'latestReplyAt',
+              readOnly: true,
+              formatType: 'datetime',
+            },
+          },
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      this.save(basicInfoFieldGroup)
+      console.log('系统内置基础信息字段组已初始化')
+    }
+  },
 }

@@ -2,10 +2,10 @@
 
 import { useState, useEffect, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  ArrowLeft, Send, CheckCircle, XCircle, MessageSquare, 
+import {
+  ArrowLeft, Send, CheckCircle, XCircle, MessageSquare,
   Clock, User, FileText, Loader2, Plus,
-  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check, RotateCcw, PackageCheck
+  Paperclip, X, Image as ImageIcon, File, Pencil, Save, Check, RotateCcw, PackageCheck, Link2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,9 @@ import { Switch } from '@/components/ui/switch'
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { RelatedDocumentsList } from '@/components/related-documents-list'
+import { SimilarDocuments } from '@/components/similar-documents'
+import { LACRelatedDocuments } from '@/components/lac-related-documents'
+import { RelatedDocumentsDialog } from '@/components/related-documents-dialog'
 import {
   documentStorage,
   formStorage,
@@ -41,10 +44,59 @@ import {
   workflowStorage,
   approvalStorage,
   replyStorage,
-  documentTypeStorage
+  documentTypeStorage,
+  fieldGroupStorage
 } from '@/lib/storage'
 import { roleStorage } from '@/lib/storage'
-import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission, RelatedDocumentConfig, ActionButton } from '@/lib/types'
+import { getFieldValue, formatFieldValue } from '@/lib/utils/virtual-fields'
+import type { Document, FormConfig, DocumentReply, ApprovalRecord, DocumentStatus, DocumentType, WorkflowConfig, WorkflowNode, NodePermission, RelatedDocumentConfig, ActionButton, FormField } from '@/lib/types'
+
+/**
+ * 解析单据类型的字段，包括字段组和普通字段
+ * @param docType - 单据类型配置
+ * @returns 解析后的字段数组
+ */
+function resolveDocumentTypeFields(docType: DocumentType): FormField[] {
+  const resolvedFields: FormField[] = []
+
+  // 处理字段组引用
+  if (docType.fieldGroups) {
+    for (const groupRef of docType.fieldGroups) {
+      if (!groupRef.enabled) continue
+
+      const fieldGroup = fieldGroupStorage.getById(groupRef.fieldGroupId)
+      if (!fieldGroup) continue
+
+      // 添加字段组的divider
+      resolvedFields.push({
+        id: `section_${fieldGroup.code}`,
+        type: 'divider',
+        label: fieldGroup.name,
+        name: `section_${fieldGroup.code}`,
+        required: false,
+        width: 'full',
+      })
+
+      // 应用字段覆盖并添加字段
+      let groupFields = [...fieldGroup.fields]
+      if (groupRef.overrideFields) {
+        groupFields = groupFields.map((field) => {
+          const override = groupRef.overrideFields?.find((f) => f.id === field.id)
+          return override ? { ...field, ...override } : field
+        })
+      }
+
+      resolvedFields.push(...groupFields)
+    }
+  }
+
+  // 添加原有字段（向后兼容）
+  if (docType.fields) {
+    resolvedFields.push(...docType.fields)
+  }
+
+  return resolvedFields
+}
 
 function generateId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -88,9 +140,10 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [showRejectDialog, setShowRejectDialog] = useState(false)
   const [showReturnDialog, setShowReturnDialog] = useState(false)
+  const [showRelatedDocsDialog, setShowRelatedDocsDialog] = useState(false)
   const [approvalComment, setApprovalComment] = useState('')
   const [returnReason, setReturnReason] = useState('')
-  
+
   // 字段编辑状态
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null)
   const [editingFieldValue, setEditingFieldValue] = useState<unknown>(null)
@@ -319,7 +372,11 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   const startEditField = (fieldId: string, fieldName: string) => {
     if (!document) return
     setEditingFieldId(fieldId)
-    setEditingFieldValue(document.formData[fieldName])
+    // 使用虚拟字段处理工具获取字段值
+    const field = resolveDocumentTypeFields(form as DocumentType).find(f => f.name === fieldName)
+    if (field) {
+      setEditingFieldValue(getFieldValue(document, field) as string)
+    }
   }
 
   // 取消编辑字段
@@ -331,19 +388,41 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
   // 保存字段编辑
   const saveFieldEdit = async (fieldName: string) => {
     if (!document) return
-    
+
     setIsSavingField(true)
     try {
-      // 更新文档数据
-      const updatedDoc: Document = {
-        ...document,
-        formData: {
-          ...document.formData,
-          [fieldName]: editingFieldValue,
-        },
-        updatedAt: new Date().toISOString(),
+      // 获取字段配置
+      const resolvedFields = resolveDocumentTypeFields(form as DocumentType)
+      const field = resolvedFields.find(f => f.name === fieldName)
+
+      if (!field) {
+        console.error('字段未找到:', fieldName)
+        return
       }
-      
+
+      // 如果是虚拟字段且只读，不允许编辑
+      if (field.virtualField?.readOnly) {
+        console.warn('虚拟字段不允许编辑:', fieldName)
+        return
+      }
+
+      // 更新文档数据
+      let updatedDoc: Document
+      if (field.virtualField) {
+        // 虚拟字段处理（目前不支持编辑虚拟字段）
+        updatedDoc = { ...document, updatedAt: new Date().toISOString() }
+      } else {
+        // 普通字段更新到formData
+        updatedDoc = {
+          ...document,
+          formData: {
+            ...document.formData,
+            [fieldName]: editingFieldValue,
+          },
+          updatedAt: new Date().toISOString(),
+        }
+      }
+
       documentStorage.save(updatedDoc)
       setDocument(updatedDoc)
       setEditingFieldId(null)
@@ -742,6 +821,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowRelatedDocsDialog(true)}
+              className="flex items-center gap-2"
+            >
+              <Link2 className="h-4 w-4" />
+              关联单据
+            </Button>
             {document.status === 'draft' && (
               <>
                 {canEdit && (
@@ -865,11 +952,14 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                   <h3 className="text-sm font-medium text-foreground">表单内容</h3>
                 </div>
                 {(() => {
+                  // 解析单据类型字段（包括字段组和普通字段）
+                  const resolvedFields = resolveDocumentTypeFields(form as DocumentType)
+
                   // 将字段按分割线分组
-                  const groups: { divider?: typeof form.fields[0]; fields: typeof form.fields }[] = []
-                  let currentGroup: typeof form.fields = []
-                  
-                  form.fields.forEach(field => {
+                  const groups: { divider?: typeof resolvedFields[0]; fields: typeof resolvedFields }[] = []
+                  let currentGroup: typeof resolvedFields = []
+
+                  resolvedFields.forEach(field => {
                     if (field.hidden) return
                     
                     if (field.type === 'divider') {
@@ -911,12 +1001,13 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                       {group.fields.length > 0 && (
                         <div className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
                           {group.fields.map((field) => {
-                            const value = document.formData[field.name]
+                            const value = getFieldValue(document, field)
                             const fieldPerm = getFieldPermission(field.id)
                             
                             // 格式化显示值
                             let displayValue: React.ReactNode = '-'
                             if (value !== undefined && value !== null && value !== '') {
+                              // 处理特殊字段类型
                               if (field.type === 'select' || field.type === 'radio') {
                                 const option = field.options?.find(o => o.value === value)
                                 displayValue = option?.label || String(value)
@@ -928,8 +1019,6 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                 }).join(', ')
                               } else if (field.type === 'switch') {
                                 displayValue = value ? '是' : '否'
-                              } else if (field.type === 'date' || field.type === 'datetime') {
-                                displayValue = new Date(String(value)).toLocaleString()
                               } else if (field.type === 'file') {
                                 const files = Array.isArray(value) ? value : [value]
                                 displayValue = files.map((f, i) => (
@@ -939,7 +1028,8 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
                                   </span>
                                 ))
                               } else {
-                                displayValue = String(value)
+                                // 使用虚拟字段处理工具进行格式化
+                                displayValue = formatFieldValue(value, field)
                               }
                             }
                             
@@ -1556,6 +1646,16 @@ export default function DocumentDetailPage({ params }: { params: Promise<{ id: s
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 关联单据弹窗 */}
+      {form && (
+        <RelatedDocumentsDialog
+          document={document}
+          form={form}
+          open={showRelatedDocsDialog}
+          onOpenChange={setShowRelatedDocsDialog}
+        />
+      )}
     </MainLayout>
   )
 }

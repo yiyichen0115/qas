@@ -145,10 +145,12 @@ export function RelatedDocumentsList({
       {/* 头部 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Package className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{config.docTypeName}</span>
+          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-primary/10">
+            <Package className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <span className="text-sm font-semibold">{config.docTypeName}</span>
           {relatedDocs.length > 0 && (
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="ml-2 px-2 py-0.5">
               {relatedDocs.length} 条
             </Badge>
           )}
@@ -157,41 +159,50 @@ export function RelatedDocumentsList({
 
       {/* 列表 */}
       {relatedDocs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 py-8">
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 py-6">
           <div className="text-center">
-            <Package className="mx-auto h-10 w-10 text-muted-foreground/50" />
-            <p className="mt-2 text-sm text-muted-foreground">
+            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-muted-foreground/5 flex items-center justify-center">
+              <Package className="h-6 w-6 text-muted-foreground/40" />
+            </div>
+            <p className="text-sm text-muted-foreground">
               {config.emptyText || '暂无关联单据'}
             </p>
           </div>
         </div>
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden shadow-sm">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-2 border-b border-border">
+            <p className="text-xs text-muted-foreground">
+              关联字段：<span className="font-medium text-foreground">{config.linkField}</span>
+              {" = "}
+              <span className="font-medium text-foreground">{sourceValue}</span>
+            </p>
+          </div>
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
                 {config.displayColumns.map(col => (
-                  <TableHead 
-                    key={col.field} 
+                  <TableHead
+                    key={col.field}
                     style={{ width: col.width }}
-                    className="text-xs font-medium"
+                    className="text-xs font-semibold text-foreground"
                   >
                     {col.label}
                   </TableHead>
                 ))}
                 {config.actions && config.actions.length > 0 && (
-                  <TableHead className="text-xs font-medium w-24">操作</TableHead>
+                  <TableHead className="text-xs font-semibold text-foreground w-24">操作</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {relatedDocs.map(doc => (
-                <TableRow key={doc.id} className="hover:bg-muted/30">
+                <TableRow key={doc.id} className="hover:bg-muted/30 transition-colors">
                   {config.displayColumns.map(col => (
                     <TableCell key={col.field} className="text-sm">
                       {col.field === 'return_goods_no' ? (
-                        <button 
-                          className="text-primary hover:underline font-medium"
+                        <button
+                          className="text-primary hover:underline font-medium transition-colors"
                           onClick={() => handleView(doc)}
                         >
                           {doc.documentNumber || formatValue(doc, col.field, doc.formData[col.field], col.format)}
@@ -209,7 +220,7 @@ export function RelatedDocumentsList({
                             key={action.code}
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0"
+                            className="h-7 w-7 p-0 hover:bg-primary/10 hover:text-primary transition-colors"
                             onClick={() => {
                               if (action.code === 'view') handleView(doc)
                               if (action.code === 'print') handlePrint(doc)
