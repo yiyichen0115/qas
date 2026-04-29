@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { fieldTypeStorage, predefinedFieldStorage, fieldGroupStorage } from '@/lib/storage'
-import type { FieldTypeConfig, PredefinedField, FieldGroup } from '@/lib/types'
+import type { FieldTypeConfig, PredefinedField, FieldGroup, FormField } from '@/lib/types'
 import {
   Type,
   Hash,
@@ -141,6 +141,65 @@ function DraggablePredefinedField({ field }: DraggablePredefinedFieldProps) {
   )
 }
 
+// 字段组中的可拖拽字段
+interface DraggableFieldGroupFieldProps {
+  field: FormField
+  groupId: string
+}
+
+function DraggableFieldGroupField({ field, groupId }: DraggableFieldGroupFieldProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `fieldgroup-${groupId}-${field.id}`,
+    data: {
+      fieldGroupField: field,
+      fieldGroupId: groupId,
+      fromFieldGroup: true,
+    },
+  })
+
+  // 获取字段类型的图标
+  const getFieldTypeIcon = (type: string) => {
+    const iconMapping: Record<string, React.ReactNode> = {
+      text: <Type className="h-3.5 w-3.5" />,
+      number: <Hash className="h-3.5 w-3.5" />,
+      textarea: <AlignLeft className="h-3.5 w-3.5" />,
+      date: <Calendar className="h-3.5 w-3.5" />,
+      datetime: <Clock className="h-3.5 w-3.5" />,
+      select: <ChevronDown className="h-3.5 w-3.5" />,
+      radio: <Circle className="h-3.5 w-3.5" />,
+      checkbox: <CheckSquare className="h-3.5 w-3.5" />,
+      switch: <ToggleLeft className="h-3.5 w-3.5" />,
+      file: <Upload className="h-3.5 w-3.5" />,
+      richtext: <FileText className="h-3.5 w-3.5" />,
+      subtable: <Table className="h-3.5 w-3.5" />,
+      signature: <PenTool className="h-3.5 w-3.5" />,
+      cascade: <List className="h-3.5 w-3.5" />,
+      formula: <Calculator className="h-3.5 w-3.5" />,
+      divider: <Minus className="h-3.5 w-3.5" />,
+      description: <Info className="h-3.5 w-3.5" />,
+    }
+    return iconMapping[type] || <Box className="h-3.5 w-3.5" />
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        'flex cursor-grab items-center gap-2 rounded-md border border-border bg-card px-2.5 py-2 text-sm transition-all hover:border-primary/50 hover:shadow-sm active:cursor-grabbing',
+        isDragging && 'opacity-50'
+      )}
+    >
+      <span className="text-muted-foreground">{getFieldTypeIcon(field.type)}</span>
+      <span className="flex-1 text-foreground truncate">{field.label}</span>
+      {field.virtualField && (
+        <Badge variant="outline" className="text-xs px-1 py-0 flex-shrink-0">虚拟</Badge>
+      )}
+    </div>
+  )
+}
+
 export function FieldPalette() {
   const [fieldTypes, setFieldTypes] = useState<FieldTypeConfig[]>([])
   const [predefinedFields, setPredefinedFields] = useState<PredefinedField[]>([])
@@ -257,79 +316,59 @@ export function FieldPalette() {
           <ScrollArea className="h-full" type="always">
             <div className="p-4 space-y-6">
               {/* 基础信息字段组 */}
-              {fieldGroups.filter(g => g.category === 'basic').length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    基础信息
-                  </h4>
-                  <div className="space-y-3">
-                    {fieldGroups.filter(g => g.category === 'basic').map((group) => (
-                      <div
-                        key={group.id}
-                        className="rounded-lg border border-border bg-card p-3 text-sm"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-foreground">{group.name}</span>
-                          {group.isSystem && (
-                            <Badge variant="secondary" className="text-xs">系统</Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">{group.description}</p>
-                        <div className="text-xs text-muted-foreground">
-                          包含 {group.fields.length} 个字段
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {group.fields.slice(0, 4).map((field) => (
-                            <Badge key={field.id} variant="outline" className="text-xs">
-                              {field.label}
-                            </Badge>
-                          ))}
-                          {group.fields.length > 4 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{group.fields.length - 4}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+              {fieldGroups.filter(g => g.category === 'basic').map((group) => (
+                <div key={group.id}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {group.name}
+                    </h4>
+                    {group.isSystem && (
+                      <Badge variant="secondary" className="text-xs">系统</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">{group.description}</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {group.fields.map((field) => (
+                      <DraggableFieldGroupField
+                        key={field.id}
+                        field={field}
+                        groupId={group.id}
+                      />
                     ))}
                   </div>
                 </div>
-              )}
+              ))}
 
               {/* 业务字段组 */}
-              {fieldGroups.filter(g => g.category === 'business').length > 0 && (
-                <div>
-                  <h4 className="mb-3 text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    业务字段组
-                  </h4>
-                  <div className="space-y-3">
-                    {fieldGroups.filter(g => g.category === 'business').map((group) => (
-                      <div
-                        key={group.id}
-                        className="rounded-lg border border-border bg-card p-3 text-sm"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-foreground">{group.name}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-2">{group.description}</p>
-                        <div className="text-xs text-muted-foreground">
-                          包含 {group.fields.length} 个字段
-                        </div>
-                      </div>
+              {fieldGroups.filter(g => g.category === 'business').map((group) => (
+                <div key={group.id}>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      {group.name}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3">{group.description}</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {group.fields.map((field) => (
+                      <DraggableFieldGroupField
+                        key={field.id}
+                        field={field}
+                        groupId={group.id}
+                      />
                     ))}
                   </div>
                 </div>
-              )}
+              ))}
 
               {/* 使用说明 */}
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
                 <h4 className="mb-2 text-xs font-medium text-blue-900 dark:text-blue-100">使用说明</h4>
                 <ul className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
-                  <li>- 基础信息字段组自动应用于所有单据</li>
-                  <li>- 字段值从 Document 结构自动读取</li>
-                  <li>- 在单据类型配置中引用字段组</li>
+                  <li>- 拖拽字段到表单设计区域</li>
+                  <li>- 虚拟字段值从 Document 自动读取</li>
+                  <li>- 可单独添加或批量添加字段</li>
                 </ul>
               </div>
 

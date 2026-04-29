@@ -71,6 +71,15 @@ function buildFromPredefinedField(predefinedFieldId: string): FormField | null {
   } as FormField
 }
 
+// Helper function to create a new field from a field group field
+function buildFromFieldGroupField(sourceField: FormField): FormField {
+  return {
+    ...sourceField,
+    id: createFieldId(),
+    name: `${sourceField.name}_${Date.now()}`,
+  }
+}
+
 // Props interface
 interface FormDesignerProps {
   initialConfig?: FormConfig
@@ -85,6 +94,7 @@ export function FormDesigner({ initialConfig, onFieldsChange }: FormDesignerProp
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dragActiveId, setDragActiveId] = useState<string | null>(null)
   const [dragActiveType, setDragActiveType] = useState<FieldType | null>(null)
+  const [dragActiveFieldGroupField, setDragActiveFieldGroupField] = useState<FormField | null>(null)
   const [fieldTypes, setFieldTypes] = useState<FieldTypeConfig[]>([])
 
   // Load field types from storage on mount
@@ -110,12 +120,22 @@ export function FormDesigner({ initialConfig, onFieldsChange }: FormDesignerProp
   // Handle drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const id = String(event.active.id)
-    if (id.startsWith('palette-')) {
+    const data = event.active.data.current
+
+    // Reset all drag states
+    setDragActiveId(null)
+    setDragActiveType(null)
+    setDragActiveFieldGroupField(null)
+
+    if (id.startsWith('fieldgroup-') && data?.fromFieldGroup && data?.fieldGroupField) {
+      // Dragging from field group
+      setDragActiveFieldGroupField(data.fieldGroupField as FormField)
+    } else if (id.startsWith('palette-')) {
+      // Dragging from palette
       setDragActiveType(id.replace('palette-', '') as FieldType)
-      setDragActiveId(null)
     } else {
+      // Dragging existing field
       setDragActiveId(id)
-      setDragActiveType(null)
     }
   }, [])
 
@@ -125,10 +145,35 @@ export function FormDesigner({ initialConfig, onFieldsChange }: FormDesignerProp
       const { active, over } = event
       setDragActiveId(null)
       setDragActiveType(null)
+      setDragActiveFieldGroupField(null)
 
       if (!over) return
 
       const activeIdStr = String(active.id)
+      const activeData = active.data.current
+
+      // Adding new field from field group
+      if (activeIdStr.startsWith('fieldgroup-') && activeData?.fromFieldGroup && activeData?.fieldGroupField) {
+        const sourceField = activeData.fieldGroupField as FormField
+        const newField = buildFromFieldGroupField(sourceField)
+
+        if (over.id === 'design-canvas') {
+          setFields((prev) => [...prev, newField])
+        } else {
+          const idx = fields.findIndex((f) => f.id === over.id)
+          if (idx >= 0) {
+            setFields((prev) => {
+              const copy = [...prev]
+              copy.splice(idx, 0, newField)
+              return copy
+            })
+          } else {
+            setFields((prev) => [...prev, newField])
+          }
+        }
+        setSelectedId(newField.id)
+        return
+      }
 
       // Adding new field from predefined fields
       if (activeIdStr.startsWith('predefined-')) {
@@ -224,11 +269,13 @@ export function FormDesigner({ initialConfig, onFieldsChange }: FormDesignerProp
   )
 
   // Build overlay field for drag preview
-  const overlayField: FormField | null = dragActiveType
-    ? buildNewField(dragActiveType, fieldTypes)
-    : dragActiveId
-      ? fields.find((f) => f.id === dragActiveId) ?? null
-      : null
+  const overlayField: FormField | null = dragActiveFieldGroupField
+    ? dragActiveFieldGroupField
+    : dragActiveType
+      ? buildNewField(dragActiveType, fieldTypes)
+      : dragActiveId
+        ? fields.find((f) => f.id === dragActiveId) ?? null
+        : null
 
   return (
     <DndContext
