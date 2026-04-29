@@ -179,8 +179,8 @@ export function FieldPalette() {
         <p className="mt-1 text-xs text-muted-foreground">拖拽添加到表单</p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'components' | 'fieldgroups' | 'basedata')} className="flex-1 flex flex-col">
-        <TabsList className="mx-4 mt-3 grid w-auto grid-cols-3">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'components' | 'fieldgroups' | 'basedata')} className="flex-1 flex flex-col min-h-0">
+        <TabsList className="mx-4 mt-3 grid w-auto grid-cols-3 flex-shrink-0">
           <TabsTrigger value="components" className="text-xs">
             <Box className="h-3.5 w-3.5 mr-1" />
             组件
@@ -195,8 +195,8 @@ export function FieldPalette() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="components" className="flex-1 mt-0 overflow-hidden">
-          <ScrollArea className="h-full">
+        <TabsContent value="components" className="flex-1 mt-0 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full" type="always">
             <div className="p-4 space-y-6">
               {basicFields.length > 0 && (
                 <div>
@@ -253,8 +253,8 @@ export function FieldPalette() {
           </ScrollArea>
 </TabsContent>
         
-        <TabsContent value="fieldgroups" className="flex-1 mt-0 overflow-hidden">
-          <ScrollArea className="h-full">
+        <TabsContent value="fieldgroups" className="flex-1 mt-0 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full" type="always">
             <div className="p-4 space-y-6">
               {/* 基础信息字段组 */}
               {fieldGroups.filter(g => g.category === 'basic').length > 0 && (
@@ -344,8 +344,8 @@ export function FieldPalette() {
           </ScrollArea>
         </TabsContent>
   
-        <TabsContent value="basedata" className="flex-1 mt-0 overflow-hidden">
-          <ScrollArea className="h-full">
+        <TabsContent value="basedata" className="flex-1 mt-0 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full" type="always">
             <div className="p-4 space-y-6">
               {vehicleFields.length > 0 && (
                 <div>
