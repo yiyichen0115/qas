@@ -59,6 +59,7 @@ const getStaticNavItems = (): NavItem[] => [
     children: [
       { title: '单据类型管理', href: '/designer/document-types' },
       { title: '单据表单设计', href: '/designer/form' },
+      { title: '列表设计', href: '/designer/list' },
       { title: '流程设计', href: '/designer/workflow' },
       { title: '页面配置', href: '/designer/page-config' },
     ],
