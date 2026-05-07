@@ -50,6 +50,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
+import { documentTypeStorage } from '@/lib/storage'
+import type { DocumentType } from '@/lib/types'
 
 interface PageConfiguratorProps {
   initialConfig?: PageConfig
@@ -99,8 +101,15 @@ const defaultActions: PageAction[] = [
 
 export function PageConfigurator({ initialConfig, onSave, onConfigChange }: PageConfiguratorProps) {
   const { forms } = useAppStore()
+  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([])
   const [pageType, setPageType] = useState<PageType>(initialConfig?.type || 'list')
   const [selectedFormId, setSelectedFormId] = useState(initialConfig?.formId || '')
+  
+  // 加载单据类型
+  useEffect(() => {
+    const types = documentTypeStorage.getAll()
+    setDocumentTypes(types)
+  }, [])
   const [columns, setColumns] = useState<ListColumn[]>(initialConfig?.columns || [])
   const [actions, setActions] = useState<PageAction[]>(initialConfig?.actions || defaultActions)
   const [filters, setFilters] = useState<FilterConfig[]>(initialConfig?.filters || [])
@@ -110,7 +119,9 @@ export function PageConfigurator({ initialConfig, onSave, onConfigChange }: Page
   const [selectedFields, setSelectedFields] = useState<string[]>([])
   const [fieldSearchQuery, setFieldSearchQuery] = useState('')
 
-  const selectedForm = forms.find((f) => f.id === selectedFormId)
+  // 从单据类型中获取选中的表单配置
+  const selectedDocType = documentTypes.find((dt) => dt.id === selectedFormId)
+  const selectedForm = selectedDocType?.formConfig || forms.find((f) => f.id === selectedFormId)
 
   // 使用 ref 存储回调以避免无限循环
   const onConfigChangeRef = useRef(onConfigChange)
@@ -314,11 +325,37 @@ export function PageConfigurator({ initialConfig, onSave, onConfigChange }: Page
                   <SelectValue placeholder="选择数据源表单" />
                 </SelectTrigger>
                 <SelectContent>
-                  {forms.map((form) => (
-                    <SelectItem key={form.id} value={form.id}>
-                      {form.name}
-                    </SelectItem>
-                  ))}
+                  {/* 单据类型 */}
+                  {documentTypes.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        单据类型
+                      </div>
+                      {documentTypes.map((docType) => (
+                        <SelectItem key={docType.id} value={docType.id}>
+                          {docType.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  {/* 表单设计器的表单 */}
+                  {forms.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        自定义表单
+                      </div>
+                      {forms.map((form) => (
+                        <SelectItem key={form.id} value={form.id}>
+                          {form.name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
+                  {documentTypes.length === 0 && forms.length === 0 && (
+                    <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                      暂无可用表单
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
               {selectedFormId && (
