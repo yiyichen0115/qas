@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { PageConfig, PageType, ListColumn, PageAction, FilterConfig } from '@/lib/types'
+import type { PageConfig, PageType, ListColumn, PageAction, FilterConfig, FormField } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -24,6 +24,15 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import {
   Plus,
   Trash2,
   GripVertical,
@@ -37,6 +46,7 @@ import {
   LayoutGrid,
   FileText,
   LayoutDashboard,
+  Search,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/stores/app-store'
@@ -93,8 +103,95 @@ export function PageConfigurator({ initialConfig, onSave }: PageConfiguratorProp
   const [columns, setColumns] = useState<ListColumn[]>(initialConfig?.columns || [])
   const [actions, setActions] = useState<PageAction[]>(initialConfig?.actions || defaultActions)
   const [filters, setFilters] = useState<FilterConfig[]>(initialConfig?.filters || [])
+  
+  // 字段选择对话框状态
+  const [showFieldSelector, setShowFieldSelector] = useState(false)
+  const [selectedFields, setSelectedFields] = useState<string[]>([])
+  const [fieldSearchQuery, setFieldSearchQuery] = useState('')
 
   const selectedForm = forms.find((f) => f.id === selectedFormId)
+
+  // 获取可用于添加列的字段（排除布局类型字段）
+  const availableFields = selectedForm?.fields.filter(
+    (f) => !['divider', 'description', 'subtable', 'signature'].includes(f.type)
+  ) || []
+
+  // 获取已添加的字段名称
+  const addedFieldNames = columns.map((col) => col.field)
+
+  // 过滤后的可选字段（排除已添加的，并支持搜索）
+  const filteredAvailableFields = availableFields.filter((f) => {
+    const isNotAdded = !addedFieldNames.includes(f.name)
+    const matchesSearch = fieldSearchQuery
+      ? f.label.toLowerCase().includes(fieldSearchQuery.toLowerCase()) ||
+        f.name.toLowerCase().includes(fieldSearchQuery.toLowerCase())
+      : true
+    return isNotAdded && matchesSearch
+  })
+
+  // 字段类型显示名称映射
+  const fieldTypeLabels: Record<string, string> = {
+    text: '文本',
+    number: '数字',
+    textarea: '多行文本',
+    date: '日期',
+    datetime: '日期时间',
+    select: '下拉选择',
+    radio: '单选',
+    checkbox: '多选',
+    switch: '开关',
+    file: '文件',
+    richtext: '富文本',
+    cascade: '级联选择',
+    formula: '公式',
+    related_documents: '关联单据',
+  }
+
+  // 打开字段选择对话框
+  const openFieldSelector = () => {
+    setSelectedFields([])
+    setFieldSearchQuery('')
+    setShowFieldSelector(true)
+  }
+
+  // 切换字段选择
+  const toggleFieldSelection = (fieldName: string) => {
+    setSelectedFields((prev) =>
+      prev.includes(fieldName) ? prev.filter((f) => f !== fieldName) : [...prev, fieldName]
+    )
+  }
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedFields.length === filteredAvailableFields.length) {
+      setSelectedFields([])
+    } else {
+      setSelectedFields(filteredAvailableFields.map((f) => f.name))
+    }
+  }
+
+  // 确认添加选中的字段
+  const confirmAddFields = () => {
+    const newColumns: ListColumn[] = selectedFields
+      .map((fieldName) => {
+        const field = availableFields.find((f) => f.name === fieldName)
+        if (!field) return null
+        return {
+          field: field.name,
+          label: field.label,
+          sortable: ['text', 'number', 'date', 'datetime'].includes(field.type),
+          filterable: ['text', 'select', 'radio', 'checkbox'].includes(field.type),
+          hidden: false,
+          format: field.type === 'date' || field.type === 'datetime' ? 'date' : 'text',
+        } as ListColumn
+      })
+      .filter(Boolean) as ListColumn[]
+
+    setColumns([...columns, ...newColumns])
+    setShowFieldSelector(false)
+    setSelectedFields([])
+    setFieldSearchQuery('')
+  }
 
   // 根据表单字段生成列配置
   const generateColumnsFromForm = () => {
@@ -307,9 +404,14 @@ export function PageConfigurator({ initialConfig, onSave }: PageConfiguratorProp
           <TabsContent value="columns" className="flex-1 overflow-y-auto p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm font-medium">列配置</span>
-              <Button variant="ghost" size="sm" onClick={addColumn}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={selectedFormId ? openFieldSelector : addColumn}
+                title={selectedFormId ? '从单据字段中选择' : '手动添加列'}
+              >
                 <Plus className="mr-1 h-4 w-4" />
-                添加
+                {selectedFormId ? '选择字段' : '添加'}
               </Button>
             </div>
             <div className="space-y-2">
@@ -431,6 +533,96 @@ export function PageConfigurator({ initialConfig, onSave }: PageConfiguratorProp
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* 字段选择对话框 */}
+      <Dialog open={showFieldSelector} onOpenChange={setShowFieldSelector}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>选择单据字段</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* 搜索框 */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={fieldSearchQuery}
+                onChange={(e) => setFieldSearchQuery(e.target.value)}
+                placeholder="搜索字段..."
+                className="pl-9"
+              />
+            </div>
+
+            {/* 全选/已选统计 */}
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2">
+                <Checkbox
+                  checked={
+                    filteredAvailableFields.length > 0 &&
+                    selectedFields.length === filteredAvailableFields.length
+                  }
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span className="text-muted-foreground">全选</span>
+              </label>
+              <span className="text-muted-foreground">
+                已选择 {selectedFields.length} / {filteredAvailableFields.length} 个字段
+              </span>
+            </div>
+
+            {/* 字段列表 */}
+            <ScrollArea className="h-[300px] rounded-md border border-border">
+              {filteredAvailableFields.length === 0 ? (
+                <div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
+                  {availableFields.length === 0
+                    ? '该表单暂无可用字段'
+                    : addedFieldNames.length === availableFields.length
+                    ? '所有字段已添加'
+                    : '没有匹配的字段'}
+                </div>
+              ) : (
+                <div className="p-2 space-y-1">
+                  {filteredAvailableFields.map((field) => (
+                    <div
+                      key={field.id}
+                      onClick={() => toggleFieldSelection(field.name)}
+                      className={cn(
+                        'flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors',
+                        selectedFields.includes(field.name)
+                          ? 'bg-primary/10 border border-primary/30'
+                          : 'hover:bg-muted border border-transparent'
+                      )}
+                    >
+                      <Checkbox
+                        checked={selectedFields.includes(field.name)}
+                        onCheckedChange={() => toggleFieldSelection(field.name)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{field.label}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {field.name}
+                        </div>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap">
+                        {fieldTypeLabels[field.type] || field.type}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFieldSelector(false)}>
+              取消
+            </Button>
+            <Button onClick={confirmAddFields} disabled={selectedFields.length === 0}>
+              添加 {selectedFields.length > 0 ? `(${selectedFields.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
