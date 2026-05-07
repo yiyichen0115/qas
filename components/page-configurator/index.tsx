@@ -93,10 +93,12 @@ const pageTypes: { value: PageType; label: string; icon: React.ReactNode; descri
 ]
 
 const defaultActions: PageAction[] = [
-  { id: 'create', type: 'create', label: '新建', position: 'toolbar' },
-  { id: 'edit', type: 'edit', label: '编辑', position: 'row' },
-  { id: 'delete', type: 'delete', label: '删除', position: 'row', confirm: true, confirmMessage: '确定要删除吗？' },
-  { id: 'export', type: 'export', label: '导出', position: 'toolbar' },
+  { id: 'create', type: 'create', label: '新建', icon: 'Plus', position: 'toolbar' },
+  { id: 'search', type: 'view', label: '搜索', icon: 'Search', position: 'toolbar' },
+  { id: 'export', type: 'export', label: '导出', icon: 'Download', position: 'toolbar' },
+  { id: 'view', type: 'view', label: '查看', icon: 'Eye', position: 'row' },
+  { id: 'edit', type: 'edit', label: '编辑', icon: 'Edit', position: 'row' },
+  { id: 'delete', type: 'delete', label: '删除', icon: 'Trash', position: 'row', confirm: true, confirmMessage: '确定要删除吗？' },
 ]
 
 export function PageConfigurator({ initialConfig, onSave, onConfigChange }: PageConfiguratorProps) {

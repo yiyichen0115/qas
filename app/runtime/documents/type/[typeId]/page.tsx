@@ -136,6 +136,28 @@ export default function DocumentTypeListPage({ params }: PageProps) {
   const displayColumns = pageConfig?.columns?.filter(col => !col.hidden) || []
   const hasCustomColumns = displayColumns.length > 0
 
+  // 获取工具栏操作配置
+  const toolbarActions = pageConfig?.actions?.filter(action => action.position === 'toolbar') || []
+  const rowActions = pageConfig?.actions?.filter(action => action.position === 'row') || []
+  const hasToolbarConfig = toolbarActions.length > 0
+  const hasRowConfig = rowActions.length > 0
+
+  // 检查是否启用特定工具栏操作
+  const canCreate = hasToolbarConfig 
+    ? toolbarActions.some(a => a.id === 'create') && canManualCreate
+    : canManualCreate
+  const hasSearch = hasToolbarConfig 
+    ? toolbarActions.some(a => a.id === 'search')
+    : true
+  const hasExport = hasToolbarConfig 
+    ? toolbarActions.some(a => a.id === 'export')
+    : false
+
+  // 检查是否启用特定行操作
+  const canView = hasRowConfig ? rowActions.some(a => a.id === 'view') : true
+  const canEdit = hasRowConfig ? rowActions.some(a => a.id === 'edit') : true
+  const canDelete = hasRowConfig ? rowActions.some(a => a.id === 'delete') : true
+
   const filteredDocuments = documents
     .filter(doc => {
       const matchesStatus = selectedStatus === 'all' || doc.status === selectedStatus
@@ -226,15 +248,17 @@ export default function DocumentTypeListPage({ params }: PageProps) {
 
           {/* 筛选器 */}
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="搜索单号或创建人..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            {hasSearch && (
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="搜索单号或创建人..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            )}
             
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
               <SelectTrigger className="w-[140px]">
@@ -255,7 +279,13 @@ export default function DocumentTypeListPage({ params }: PageProps) {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回
               </Button>
-              {canManualCreate && (
+              {hasExport && (
+                <Button variant="outline" onClick={() => alert('导出功能开发中')}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  导出
+                </Button>
+              )}
+              {canCreate && (
                 <Button onClick={handleCreateNew}>
                   <Plus className="mr-2 h-4 w-4" />
                   新建{documentType.name}
@@ -375,17 +405,19 @@ export default function DocumentTypeListPage({ params }: PageProps) {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleView(doc.id) }}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  查看详情
-                                </DropdownMenuItem>
-                                {doc.status === 'draft' && (
+                                {canView && (
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleView(doc.id) }}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    查看详情
+                                  </DropdownMenuItem>
+                                )}
+                                {canEdit && doc.status === 'draft' && (
                                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(doc) }}>
                                     <Edit2 className="mr-2 h-4 w-4" />
                                     编辑
                                   </DropdownMenuItem>
                                 )}
-                                {(doc.status === 'draft' || doc.status === 'cancelled') && (
+                                {canDelete && (doc.status === 'draft' || doc.status === 'cancelled') && (
                                   <DropdownMenuItem 
                                     className="text-destructive"
                                     onClick={(e) => { e.stopPropagation(); handleDelete(doc.id) }}

@@ -10,12 +10,22 @@ import { useEffect, useState } from 'react'
 import { pageStorage } from '@/lib/storage'
 import type { PageConfig, ListColumn, PageAction } from '@/lib/types'
 
-// 默认操作按钮
-const defaultActions: PageAction[] = [
-  { id: 'view', label: '查看', icon: 'Eye', type: 'primary' },
-  { id: 'edit', label: '编辑', icon: 'Edit', type: 'secondary' },
-  { id: 'delete', label: '删除', icon: 'Trash', type: 'danger' },
+// 工具栏操作（页面顶部按钮）
+const toolbarActions: PageAction[] = [
+  { id: 'create', label: '新建', icon: 'Plus', type: 'primary', position: 'toolbar' },
+  { id: 'search', label: '搜索', icon: 'Search', type: 'secondary', position: 'toolbar' },
+  { id: 'export', label: '导出', icon: 'Download', type: 'secondary', position: 'toolbar' },
 ]
+
+// 行操作（每行数据的操作按钮）
+const rowActions: PageAction[] = [
+  { id: 'view', label: '查看', icon: 'Eye', type: 'primary', position: 'row' },
+  { id: 'edit', label: '编辑', icon: 'Edit', type: 'secondary', position: 'row' },
+  { id: 'delete', label: '删除', icon: 'Trash', type: 'danger', position: 'row', confirm: true, confirmMessage: '确定要删除此单据吗？' },
+]
+
+// 所有默认操作
+const defaultActions: PageAction[] = [...toolbarActions, ...rowActions]
 
 // PAC单据页面配置
 const pacPageConfig: PageConfig = {
@@ -346,7 +356,7 @@ const supportFeedbackPageConfig: PageConfig = {
     },
     {
       field: 'faultType',
-      label: '故障类别',
+      label: '故障��别',
       sortable: true,
       filterable: true,
       hidden: false,
@@ -440,17 +450,30 @@ export function InitPageConfigs() {
         pageStorage.save(config)
         console.log(`页面配置 "${config.name}" 已自动创建`)
       } else {
-        // 如果存在但没有列配置，则更新
+        // 如果存在，检查是否需要更新
         const existing = existingByFormId || existingById
-        if (existing && (!existing.columns || existing.columns.length === 0)) {
-          const updatedConfig = {
-            ...existing,
-            columns: config.columns,
-            actions: config.actions,
-            updatedAt: new Date().toISOString(),
+        if (existing) {
+          // 检查是否需要更新列配置或操作配置
+          const needsColumnUpdate = !existing.columns || existing.columns.length === 0
+          // 检查 actions 是否需要更新：
+          // 1. 没有 actions
+          // 2. 没有工具栏操作
+          // 3. actions 格式不正确（没有 position 属性）
+          const needsActionsUpdate = !existing.actions || 
+            existing.actions.length === 0 || 
+            !existing.actions.some(a => a.position === 'toolbar') ||
+            existing.actions.some(a => !a.position) // 有 action 没有 position
+
+          if (needsColumnUpdate || needsActionsUpdate) {
+            const updatedConfig = {
+              ...existing,
+              columns: needsColumnUpdate ? config.columns : existing.columns,
+              actions: config.actions, // 始终使用最新的 actions 配置
+              updatedAt: new Date().toISOString(),
+            }
+            pageStorage.save(updatedConfig)
+            console.log(`页面配置 "${config.name}" 已更新`)
           }
-          pageStorage.save(updatedConfig)
-          console.log(`页面配置 "${config.name}" 已更新列配置`)
         }
       }
     }
