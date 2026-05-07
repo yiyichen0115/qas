@@ -35,8 +35,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MainLayout } from '@/components/layout/main-layout'
 import { PageHeader } from '@/components/layout/page-header'
-import { documentStorage, documentTypeStorage } from '@/lib/storage'
-import type { Document, DocumentType } from '@/lib/types'
+import { documentStorage, documentTypeStorage, pageStorage } from '@/lib/storage'
+import type { Document, DocumentType, PageConfig, ListColumn } from '@/lib/types'
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ComponentType<{ className?: string }> }> = {
   draft: { label: '草稿', variant: 'secondary', icon: Edit2 },
@@ -66,6 +66,7 @@ export default function DocumentTypeListPage({ params }: PageProps) {
   
   const [documents, setDocuments] = useState<Document[]>([])
   const [documentType, setDocumentType] = useState<DocumentType | null>(null)
+  const [pageConfig, setPageConfig] = useState<PageConfig | null>(null)
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
@@ -82,9 +83,58 @@ export default function DocumentTypeListPage({ params }: PageProps) {
     if (type) {
       const docs = documentStorage.getByDocumentTypeId(typeId)
       setDocuments(docs)
+      
+      // 加载页面配置
+      const config = pageStorage.getByFormId(typeId)
+      setPageConfig(config || null)
     }
     setLoading(false)
   }
+
+  // 获取单据字段值（支持从 formData 和顶级字段读取）
+  const getFieldValue = (doc: Document, fieldName: string): unknown => {
+    // 首先尝试从顶级字段获取
+    if (fieldName in doc) {
+      return (doc as Record<string, unknown>)[fieldName]
+    }
+    // 然后从 formData 获取
+    return doc.formData?.[fieldName]
+  }
+
+  // 格式化字段值用于显示
+  const formatFieldValue = (value: unknown, column: ListColumn): string => {
+    if (value === null || value === undefined || value === '') {
+      return '-'
+    }
+
+    switch (column.format) {
+      case 'date':
+        try {
+          return new Date(value as string).toLocaleDateString()
+        } catch {
+          return String(value)
+        }
+      case 'number':
+        return typeof value === 'number' ? value.toLocaleString() : String(value)
+      case 'status':
+        // 状态值可能需要特殊处理
+        return String(value)
+      default:
+        // 处理数组类型
+        if (Array.isArray(value)) {
+          return value.join(', ')
+        }
+        // 处理对象类型
+        if (typeof value === 'object') {
+          return JSON.stringify(value)
+        }
+        return String(value)
+    }
+  }
+
+  // 获取要显示的列配置
+  const displayColumns = pageConfig?.columns?.filter(col => !col.hidden) || []
+  const hasCustomColumns = displayColumns.length > 0
 
   const filteredDocuments = documents
     .filter(doc => {
@@ -221,17 +271,29 @@ export default function DocumentTypeListPage({ params }: PageProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[160px]">单号</TableHead>
-                    <TableHead>状态</TableHead>
-                    <TableHead>创建人</TableHead>
-                    <TableHead>创建时间</TableHead>
-                    <TableHead>更新时间</TableHead>
+                    {hasCustomColumns ? (
+                      // 使用页面配置中的列
+                      displayColumns.map((col) => (
+                        <TableHead key={col.field} style={col.width ? { width: col.width } : undefined}>
+                          {col.label}
+                        </TableHead>
+                      ))
+                    ) : (
+                      // 默认列
+                      <>
+                        <TableHead>状态</TableHead>
+                        <TableHead>创建人</TableHead>
+                        <TableHead>创建时间</TableHead>
+                        <TableHead>更新时间</TableHead>
+                      </>
+                    )}
                     <TableHead className="text-right w-[100px]">操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredDocuments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-16">
+                      <TableCell colSpan={hasCustomColumns ? displayColumns.length + 2 : 6} className="text-center py-16">
                         <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-lg bg-muted">
                           <IconComponent className="h-6 w-6 text-muted-foreground" />
                         </div>
@@ -264,19 +326,47 @@ export default function DocumentTypeListPage({ params }: PageProps) {
                           <TableCell className="font-mono text-sm">
                             {doc.documentNumber}
                           </TableCell>
-                          <TableCell>
-                            <Badge variant={status.variant} className="gap-1">
-                              <StatusIcon className="h-3 w-3" />
-                              {status.label}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{doc.createdByName}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(doc.createdAt).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {new Date(doc.updatedAt).toLocaleString()}
-                          </TableCell>
+                          {hasCustomColumns ? (
+                            // 使用页面配置中的列来渲染数据
+                            displayColumns.map((col) => {
+                              const value = getFieldValue(doc, col.field)
+                              // 特殊处理状态列
+                              if (col.field === 'status') {
+                                const docStatus = statusConfig[doc.status] || statusConfig.draft
+                                const DocStatusIcon = docStatus.icon
+                                return (
+                                  <TableCell key={col.field}>
+                                    <Badge variant={docStatus.variant} className="gap-1">
+                                      <DocStatusIcon className="h-3 w-3" />
+                                      {docStatus.label}
+                                    </Badge>
+                                  </TableCell>
+                                )
+                              }
+                              return (
+                                <TableCell key={col.field} className={col.format === 'date' ? 'text-muted-foreground' : ''}>
+                                  {formatFieldValue(value, col)}
+                                </TableCell>
+                              )
+                            })
+                          ) : (
+                            // 默认列
+                            <>
+                              <TableCell>
+                                <Badge variant={status.variant} className="gap-1">
+                                  <StatusIcon className="h-3 w-3" />
+                                  {status.label}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{doc.createdByName}</TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {new Date(doc.createdAt).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {new Date(doc.updatedAt).toLocaleString()}
+                              </TableCell>
+                            </>
+                          )}
                           <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>

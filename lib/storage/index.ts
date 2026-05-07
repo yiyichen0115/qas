@@ -140,6 +140,11 @@ export const pageStorage = {
     return pages.find(p => p.id === id)
   },
   
+  getByFormId: (formId: string): PageConfig | undefined => {
+    const pages = pageStorage.getAll()
+    return pages.find(p => p.formId === formId)
+  },
+  
   save: (page: PageConfig): void => {
     const pages = pageStorage.getAll()
     const index = pages.findIndex(p => p.id === page.id)
@@ -656,7 +661,7 @@ function getDefaultFieldTypes(): FieldTypeConfig[] {
     { id: 'ft_file', type: 'file', label: '文件上传', icon: 'Upload', category: 'advanced', enabled: true, order: 10, isSystem: true, description: '上传文件附件', createdAt: now, updatedAt: now },
     { id: 'ft_richtext', type: 'richtext', label: '富文本', icon: 'FileText', category: 'advanced', enabled: true, order: 11, isSystem: true, description: '支持格式化的文本编辑器', createdAt: now, updatedAt: now },
     { id: 'ft_subtable', type: 'subtable', label: '子表格', icon: 'Table', category: 'advanced', enabled: true, order: 12, isSystem: true, description: '嵌套的表格数据', createdAt: now, updatedAt: now },
-    { id: 'ft_signature', type: 'signature', label: '电子签名', icon: 'PenTool', category: 'advanced', enabled: true, order: 13, isSystem: true, description: '手写签名', createdAt: now, updatedAt: now },
+    { id: 'ft_signature', type: 'signature', label: '电子签名', icon: 'PenTool', category: 'advanced', enabled: true, order: 13, isSystem: true, description: '手���签名', createdAt: now, updatedAt: now },
     { id: 'ft_cascade', type: 'cascade', label: '级联选择', icon: 'List', category: 'advanced', enabled: true, order: 14, isSystem: true, description: '多级联动选择', createdAt: now, updatedAt: now },
     { id: 'ft_formula', type: 'formula', label: '公式计算', icon: 'Calculator', category: 'advanced', enabled: true, order: 15, isSystem: true, description: '自动计算字段', createdAt: now, updatedAt: now },
     // 布局元素
