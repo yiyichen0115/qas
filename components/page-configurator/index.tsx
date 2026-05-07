@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { PageConfig, PageType, ListColumn, PageAction, FilterConfig, FormField } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -112,10 +112,14 @@ export function PageConfigurator({ initialConfig, onSave, onConfigChange }: Page
 
   const selectedForm = forms.find((f) => f.id === selectedFormId)
 
+  // 使用 ref 存储回调以避免无限循环
+  const onConfigChangeRef = useRef(onConfigChange)
+  onConfigChangeRef.current = onConfigChange
+
   // 当配置变更时通知父组件
   useEffect(() => {
-    if (onConfigChange) {
-      onConfigChange({
+    if (onConfigChangeRef.current) {
+      onConfigChangeRef.current({
         type: pageType,
         formId: selectedFormId || undefined,
         columns,
@@ -123,7 +127,7 @@ export function PageConfigurator({ initialConfig, onSave, onConfigChange }: Page
         filters,
       })
     }
-  }, [pageType, selectedFormId, columns, actions, filters, onConfigChange])
+  }, [pageType, selectedFormId, columns, actions, filters])
 
   // 获取可用于添加列的字段（排除布局类型字段）
   const availableFields = selectedForm?.fields.filter(
@@ -361,7 +365,7 @@ export function PageConfigurator({ initialConfig, onSave, onConfigChange }: Page
             <CardContent>
               {columns.length === 0 ? (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">
-                  请添加列配置或从表单生成
+                  ���添加列配置或从表单生成
                 </div>
               ) : (
                 <Table>
