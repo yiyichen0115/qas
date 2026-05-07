@@ -142,10 +142,7 @@ export default function DocumentTypeListPage({ params }: PageProps) {
   const hasToolbarConfig = toolbarActions.length > 0
   const hasRowConfig = rowActions.length > 0
 
-  // 检查是否启用特定工具栏操作
-  const canCreate = hasToolbarConfig 
-    ? toolbarActions.some(a => a.id === 'create') && canManualCreate
-    : canManualCreate
+  // 检查是否启用特定工具栏操作（搜索和导出不依赖 canManualCreate）
   const hasSearch = hasToolbarConfig 
     ? toolbarActions.some(a => a.id === 'search')
     : true
@@ -196,6 +193,11 @@ export default function DocumentTypeListPage({ params }: PageProps) {
 
   // 是否允许手动创建
   const canManualCreate = documentType?.allowManualCreate !== false
+  
+  // 检查是否启用新建操作（结合页面配置和单据类型设置）
+  const canCreate = hasToolbarConfig 
+    ? toolbarActions.some(a => a.id === 'create') && canManualCreate
+    : canManualCreate
 
   const IconComponent = documentType?.icon ? iconMap[documentType.icon] || FolderOpen : FolderOpen
 
