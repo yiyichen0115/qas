@@ -67,6 +67,30 @@ function PageConfigContent() {
     }
   }, [pageId, pages, setCurrentPage])
 
+  // 处理配置变更
+  const handleConfigChange = (config: Partial<PageConfig>) => {
+    setCurrentPage((prev) => {
+      if (!prev) {
+        return {
+          id: generateId(),
+          name: '',
+          type: config.type || 'list',
+          formId: config.formId,
+          columns: config.columns,
+          filters: config.filters,
+          actions: config.actions,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+      }
+      return {
+        ...prev,
+        ...config,
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
   const handleSave = () => {
     if (!pageName.trim()) return
 
@@ -228,7 +252,11 @@ function PageConfigContent() {
 
         {/* 配置器 */}
         <div className="flex-1 overflow-hidden">
-          <PageConfigurator key={configuratorKey} initialConfig={currentPage || undefined} />
+          <PageConfigurator
+            key={configuratorKey}
+            initialConfig={currentPage || undefined}
+            onConfigChange={handleConfigChange}
+          />
         </div>
       </div>
 

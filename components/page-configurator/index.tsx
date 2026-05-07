@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { PageConfig, PageType, ListColumn, PageAction, FilterConfig, FormField } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,6 +54,7 @@ import { useAppStore } from '@/stores/app-store'
 interface PageConfiguratorProps {
   initialConfig?: PageConfig
   onSave?: (config: PageConfig) => void
+  onConfigChange?: (config: Partial<PageConfig>) => void
 }
 
 const pageTypes: { value: PageType; label: string; icon: React.ReactNode; description: string }[] = [
@@ -96,7 +97,7 @@ const defaultActions: PageAction[] = [
   { id: 'export', type: 'export', label: '导出', position: 'toolbar' },
 ]
 
-export function PageConfigurator({ initialConfig, onSave }: PageConfiguratorProps) {
+export function PageConfigurator({ initialConfig, onSave, onConfigChange }: PageConfiguratorProps) {
   const { forms } = useAppStore()
   const [pageType, setPageType] = useState<PageType>(initialConfig?.type || 'list')
   const [selectedFormId, setSelectedFormId] = useState(initialConfig?.formId || '')
@@ -110,6 +111,19 @@ export function PageConfigurator({ initialConfig, onSave }: PageConfiguratorProp
   const [fieldSearchQuery, setFieldSearchQuery] = useState('')
 
   const selectedForm = forms.find((f) => f.id === selectedFormId)
+
+  // 当配置变更时通知父组件
+  useEffect(() => {
+    if (onConfigChange) {
+      onConfigChange({
+        type: pageType,
+        formId: selectedFormId || undefined,
+        columns,
+        actions,
+        filters,
+      })
+    }
+  }, [pageType, selectedFormId, columns, actions, filters, onConfigChange])
 
   // 获取可用于添加列的字段（排除布局类型字段）
   const availableFields = selectedForm?.fields.filter(
