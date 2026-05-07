@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { InitPacDocument } from '@/components/init-pac-document'
 import { InitLacDocument } from '@/components/init-lac-document'
 import { InitReturnGoodsDocument } from '@/components/init-return-goods-document'
+import { InitPageConfigs } from '@/components/init-page-configs'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -43,6 +44,7 @@ export default function RootLayout({
         <InitPacDocument />
         <InitLacDocument />
         <InitReturnGoodsDocument />
+        <InitPageConfigs />
         {children}
         <Analytics />
       </body>
