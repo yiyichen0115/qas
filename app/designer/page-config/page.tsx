@@ -69,26 +69,25 @@ function PageConfigContent() {
 
   // 处理配置变更
   const handleConfigChange = (config: Partial<PageConfig>) => {
-    setCurrentPage((prev) => {
-      if (!prev) {
-        return {
-          id: generateId(),
-          name: '',
-          type: config.type || 'list',
-          formId: config.formId,
-          columns: config.columns,
-          filters: config.filters,
-          actions: config.actions,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      }
-      return {
-        ...prev,
+    if (!currentPage) {
+      setCurrentPage({
+        id: generateId(),
+        name: '',
+        type: config.type || 'list',
+        formId: config.formId,
+        columns: config.columns,
+        filters: config.filters,
+        actions: config.actions,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    } else {
+      setCurrentPage({
+        ...currentPage,
         ...config,
         updatedAt: new Date().toISOString(),
-      }
-    })
+      })
+    }
   }
 
   const handleSave = () => {
