@@ -120,8 +120,11 @@ export function PageConfigurator({ initialConfig, onSave, onConfigChange }: Page
   const [fieldSearchQuery, setFieldSearchQuery] = useState('')
 
   // 从单据类型中获取选中的表单配置
+  // 注意：DocumentType 的字段直接在 fields 属性中，而不是在 formConfig 中
   const selectedDocType = documentTypes.find((dt) => dt.id === selectedFormId)
-  const selectedForm = selectedDocType?.formConfig || forms.find((f) => f.id === selectedFormId)
+  const selectedForm = selectedDocType 
+    ? { fields: selectedDocType.fields, name: selectedDocType.name } 
+    : forms.find((f) => f.id === selectedFormId)
 
   // 使用 ref 存储回调以避免无限循环
   const onConfigChangeRef = useRef(onConfigChange)
